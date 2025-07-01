@@ -26,6 +26,11 @@ spring:
           starttls:
             enable: true
 
+admin:
+  user:
+    email: ${ADMIN_EMAIL}
+    password: ${ADMIN_PASSWORD}
+
 cors:
   allowed-origins: "http://localhost:3000"
   allowed-methods: GET,POST,PUT,DELETE,OPTIONS
