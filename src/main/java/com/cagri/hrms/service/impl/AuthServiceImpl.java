@@ -8,6 +8,7 @@ import com.cagri.hrms.entity.User;
 import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.AuthService;
+import com.cagri.hrms.service.JwtService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;

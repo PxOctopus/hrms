@@ -48,5 +48,8 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id") // Foreign key referencing the company table
     private Company company;
+
+    private boolean enabled; // Email verification controls this
+
 }
 
