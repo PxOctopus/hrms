@@ -1,14 +1,14 @@
 package com.cagri.hrms.exception;
 
 import org.springframework.http.ResponseEntity;
-import com.cagri.hrms.dto.response.ErrorResponseDTO;
+import com.cagri.hrms.dto.response.general.ErrorResponseDTO;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Handles all custom HRMS exceptions (e.g., ValidationException, BusinessException, etc.)
+    // Handles all custom HRMS exceptions
     @ExceptionHandler(HrmsException.class)
     public ResponseEntity<ErrorResponseDTO> handleHrmsException(HrmsException ex) {
         ErrorType errorType = ex.getErrorType();

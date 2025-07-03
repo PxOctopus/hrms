@@ -1,8 +1,8 @@
 package com.cagri.hrms.service.impl;
 
-import com.cagri.hrms.dto.request.LoginRequestDTO;
-import com.cagri.hrms.dto.request.RegisterRequestDTO;
-import com.cagri.hrms.dto.response.AuthResponseDTO;
+import com.cagri.hrms.dto.request.auth.LoginRequestDTO;
+import com.cagri.hrms.dto.request.auth.RegisterRequestDTO;
+import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
 import com.cagri.hrms.entity.Role;
 import com.cagri.hrms.entity.User;
 import com.cagri.hrms.repository.RoleRepository;

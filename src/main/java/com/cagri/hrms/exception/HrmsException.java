@@ -6,8 +6,8 @@ import lombok.Getter;
 public class HrmsException extends RuntimeException {
     private final ErrorType errorType;
 
-    public HrmsException(ErrorType errorType) {
-        super(errorType.getMessage());
+    public HrmsException(ErrorType errorType, String message) {
+        super(message);
         this.errorType = errorType;
     }
 

@@ -1,4 +1,4 @@
-package com.cagri.hrms.dto.response;
+package com.cagri.hrms.dto.response.auth;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.cagri.hrms.dto.response;
+package com.cagri.hrms.dto.response.general;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

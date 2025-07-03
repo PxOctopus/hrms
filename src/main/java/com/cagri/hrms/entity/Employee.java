@@ -33,6 +33,9 @@ public class Employee {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
+    @Column(nullable = false, unique = true)
+    private String email;
+
     @Column(name = "hire_date")
     private LocalDate hireDate;
 

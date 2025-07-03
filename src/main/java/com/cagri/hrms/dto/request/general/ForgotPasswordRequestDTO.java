@@ -1,4 +1,4 @@
-package com.cagri.hrms.dto.request;
+package com.cagri.hrms.dto.request.general;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

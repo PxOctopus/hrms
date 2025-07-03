@@ -2,7 +2,7 @@ package com.cagri.hrms.exception;
 
 
 public class BusinessException extends HrmsException {
-    public BusinessException() {
-        super(ErrorType.BUSINESS_ERROR);
+    public BusinessException(String message) {
+        super(ErrorType.BUSINESS_ERROR, message);
     }
 }

@@ -1,4 +1,4 @@
-package com.cagri.hrms.dto.request;
+package com.cagri.hrms.dto.request.user;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
