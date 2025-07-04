@@ -10,9 +10,11 @@ import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.EmployeeService;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -24,38 +26,52 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final CompanyRepository companyRepository;
     private final EmployeeMapper employeeMapper;
 
-    public EmployeeResponseDTO createEmployee(EmployeeRequestDTO dto) {
-        User user = userRepository.findById(dto.getUserId()).orElseThrow();
-        Company company = companyRepository.findById(dto.getCompanyId()).orElseThrow();
 
-        Employee employee = employeeMapper.toEntity(dto, user, company);
+    @Override
+    public EmployeeResponseDTO createEmployee(EmployeeRequestDTO requestDTO) {
+        User user = userRepository.findById(requestDTO.getUserId())
+                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + requestDTO.getUserId()));
+
+        Company company = companyRepository.findById(requestDTO.getCompanyId())
+                .orElseThrow(() -> new EntityNotFoundException("Company not found with ID: " + requestDTO.getCompanyId()));
+
+        Employee employee = employeeMapper.toEntity(requestDTO, user, company);
         employeeRepository.save(employee);
 
         return employeeMapper.toDTO(employee);
     }
 
     @Override
-    public EmployeeResponseDTO createEmployee(EmployeeRequestDTO requestDTO, Long userId, Long companyId) {
-        return null;
-    }
-
-    @Override
     public List<EmployeeResponseDTO> getAllEmployees() {
-        return List.of();
+        return employeeRepository.findAll()
+                .stream()
+                .map(employeeMapper::toDTO)
+                .toList();
     }
 
     @Override
     public EmployeeResponseDTO getEmployeeById(Long id) {
-        return null;
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
+        return employeeMapper.toDTO(employee);
     }
 
     @Override
     public EmployeeResponseDTO updateEmployee(Long id, EmployeeRequestDTO requestDTO) {
-        return null;
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
+
+        employeeMapper.updateFromDto(requestDTO, employee); // Update with MapStruct
+        employee.setUpdatedAt(System.currentTimeMillis());
+
+        employeeRepository.save(employee);
+        return employeeMapper.toDTO(employee);
     }
 
     @Override
     public void deleteEmployee(Long id) {
-
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
+        employeeRepository.delete(employee);
     }
 }

@@ -1,14 +1,15 @@
 package com.cagri.hrms.dto.request.auth;
 
+import com.cagri.hrms.enums.ContractType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-@Getter
-@RequiredArgsConstructor
+@Data
 public class RegisterRequestDTO {
 
     @NotBlank(message = "Full name is required")
@@ -25,4 +26,6 @@ public class RegisterRequestDTO {
             message = "Password must contain at least 1 uppercase letter, 1 lowercase letter, and 1 digit"
     )
     private final String password;
+
+
 }

@@ -12,4 +12,9 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
     Optional<Company> findByCompanyName(String name);
 
     boolean existsByCompanyName(String name);
+
+    int countByIsActiveTrue();
+
+    boolean existsByIdAndIsActiveTrue(Long companyId);
+
 }

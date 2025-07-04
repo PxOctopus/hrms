@@ -64,4 +64,8 @@ public class CustomUserDetails implements UserDetails {
     public String getEmail() {
         return user.getEmail();
     }
+
+    public Long getCompanyId() {
+        return user.getCompany() != null ? user.getCompany().getId() : null;
+    }
 }

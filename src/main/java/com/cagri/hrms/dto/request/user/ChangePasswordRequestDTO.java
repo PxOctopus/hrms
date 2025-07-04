@@ -1,20 +1,17 @@
-package com.cagri.hrms.dto.request.general;
+package com.cagri.hrms.dto.request.user;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class ResetPasswordRequestDTO {
-    @NotBlank(message = "Token is required")
-    private String token;
+public class ChangePasswordRequestDTO {
 
-    @NotBlank(message = "Password is required")
+    @NotBlank(message = "Current password is required")
+    private String currentPassword;
+
+    @NotBlank(message = "New password is required")
     @Size(min = 8, max = 20, message = "Password must be 8–20 characters long")
     @Pattern(
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).*$",
@@ -22,5 +19,6 @@ public class ResetPasswordRequestDTO {
     )
     private String newPassword;
 
-
+    @NotBlank(message = "Password confirmation is required")
+    private String confirmPassword;
 }

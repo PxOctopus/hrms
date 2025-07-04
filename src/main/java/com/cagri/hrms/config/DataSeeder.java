@@ -36,6 +36,14 @@ public class DataSeeder {
                 roleRepository.save(adminRole);
             }
 
+            // Create an EMPLOYEE role if it doesn't exist
+            if (!roleRepository.existsByName("EMPLOYEE")) {
+                Role employeeRole = Role.builder()
+                        .name("EMPLOYEE")
+                        .build();
+                roleRepository.save(employeeRole);
+            }
+
             // Create an admin user if not exists
             if (userRepository.count() == 0) {
                 Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();

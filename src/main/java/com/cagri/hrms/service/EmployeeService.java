@@ -7,8 +7,6 @@ import java.util.List;
 
 public interface EmployeeService {
 
-    EmployeeResponseDTO createEmployee(EmployeeRequestDTO requestDTO, Long userId, Long companyId);
-
     List<EmployeeResponseDTO> getAllEmployees();
 
     EmployeeResponseDTO getEmployeeById(Long id);
@@ -16,4 +14,7 @@ public interface EmployeeService {
     EmployeeResponseDTO updateEmployee(Long id, EmployeeRequestDTO requestDTO);
 
     void deleteEmployee(Long id);
+
+    EmployeeResponseDTO createEmployee(EmployeeRequestDTO internalDTO);
+
 }

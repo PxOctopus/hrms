@@ -1,5 +1,6 @@
 package com.cagri.hrms.mapper;
 
+import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.request.employee.EmployeeRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.Company;
@@ -15,6 +16,17 @@ public interface EmployeeMapper {
     @Mapping(source = "user.email", target = "email")
     @Mapping(source = "company.companyName", target = "companyName")
     EmployeeResponseDTO toDTO(Employee employee);
+
+    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "companyId", ignore = true)
+    EmployeeRequestDTO toRequestDTO(EmployeeCreateRequestDTO dto);
+
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "company", ignore = true)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", expression = "java(System.currentTimeMillis())")
+    void updateFromDto(EmployeeRequestDTO dto, @MappingTarget Employee employee);
 
     // Maps fields from DTO and binds context params manually (don't use source for context)
     @Mapping(target = "birthDate", source = "dto.birthDate")

@@ -15,6 +15,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "tbl_users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -28,13 +29,26 @@ public class User {
 
     // AUTHENTICATION & STATUS
     @Column(nullable = false)
-    @JsonIgnore // Hidden during JSON serialization for security reasons
+    @JsonIgnore // Password should not be returned in API responses
     private String password;
 
     @Column(name = "email_verified")
     private Boolean emailVerified;
 
-    private Boolean isActive;
+    @Column(name = "enabled")
+    private boolean enabled; // Used by Spring Security for account status (true = enabled)
+
+    private Boolean isActive; // Custom flag to indicate logical activation (for HR usage)
+
+    @Column(name = "verification_token")
+    private String verificationToken; // Token sent during registration for email confirmation
+
+    // PASSWORD RESET SUPPORT
+    @Column(name = "reset_token")
+    private String resetToken; // Token for password reset email
+
+    @Column(name = "reset_token_expiry")
+    private LocalDate resetTokenExpiry; // Expiry date for password reset token
 
     // AUDIT
     @Column(name = "created_at")
@@ -42,14 +56,10 @@ public class User {
 
     // RELATIONS
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id") // Foreign key referencing the role table
+    @JoinColumn(name = "role_id")
     private Role role;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id") // Foreign key referencing the company table
+    @JoinColumn(name = "company_id")
     private Company company;
-
-    private boolean enabled; // Email verification controls this
-
 }
-
