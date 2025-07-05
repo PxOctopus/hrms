@@ -30,6 +30,11 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+    }
+    @Override
     public UserResponseDTO createUser(UserRequestDTO dto) {
         // Retrieve Role entity by role name from DTO
         Role role = roleRepository.findByName(dto.getRoleName())

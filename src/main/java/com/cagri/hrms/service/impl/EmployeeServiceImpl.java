@@ -1,6 +1,6 @@
 package com.cagri.hrms.service.impl;
 
-import com.cagri.hrms.dto.request.employee.EmployeeRequestDTO;
+import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.Company;
 import com.cagri.hrms.entity.Employee;
@@ -12,32 +12,35 @@ import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.EmployeeService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
 
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepository employeeRepository;
-    private final UserRepository userRepository;
-    private final CompanyRepository companyRepository;
     private final EmployeeMapper employeeMapper;
 
-
     @Override
-    public EmployeeResponseDTO createEmployee(EmployeeRequestDTO requestDTO) {
-        User user = userRepository.findById(requestDTO.getUserId())
-                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + requestDTO.getUserId()));
+    public EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {
+        // Get associated company from the authenticated user
+        Company company = authenticatedUser.getCompany();
+        if (company == null) {
+            throw new EntityNotFoundException("Authenticated user is not associated with any company.");
+        }
 
-        Company company = companyRepository.findById(requestDTO.getCompanyId())
-                .orElseThrow(() -> new EntityNotFoundException("Company not found with ID: " + requestDTO.getCompanyId()));
+        // Map DTO to Employee entity using MapStruct
+        Employee employee = employeeMapper.toEntity(requestDTO, authenticatedUser, company);
 
-        Employee employee = employeeMapper.toEntity(requestDTO, user, company);
+        // Save employee to the database
         employeeRepository.save(employee);
 
+        // Map saved employee to response DTO
         return employeeMapper.toDTO(employee);
     }
 
@@ -53,18 +56,34 @@ public class EmployeeServiceImpl implements EmployeeService {
     public EmployeeResponseDTO getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
+
         return employeeMapper.toDTO(employee);
     }
 
     @Override
-    public EmployeeResponseDTO updateEmployee(Long id, EmployeeRequestDTO requestDTO) {
+    public EmployeeResponseDTO updateEmployee(Long id, EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {
+        // Fetch existing employee
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
 
-        employeeMapper.updateFromDto(requestDTO, employee); // Update with MapStruct
+        // Check company association
+        Company company = authenticatedUser.getCompany();
+        if (company == null) {
+            throw new EntityNotFoundException("Authenticated user is not associated with any company.");
+        }
+
+        // Update fields from DTO
+        employeeMapper.updateFromDto(requestDTO, employee);
+
+        // (Optional) Update user and company associations if needed
+        employee.setUser(authenticatedUser);
+        employee.setCompany(company);
+
         employee.setUpdatedAt(System.currentTimeMillis());
 
+        // Save updated employee
         employeeRepository.save(employee);
+
         return employeeMapper.toDTO(employee);
     }
 
@@ -72,6 +91,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     public void deleteEmployee(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
+
         employeeRepository.delete(employee);
     }
 }

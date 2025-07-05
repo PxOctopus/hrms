@@ -28,20 +28,22 @@ public class DataSeeder {
     @Bean
     public CommandLineRunner initDatabase(UserRepository userRepository, RoleRepository roleRepository) {
         return args -> {
-            // Create an admin role if not exists
-            if (roleRepository.count() == 0) {
-                Role adminRole = Role.builder()
-                        .name("ADMIN")
-                        .build();
+            // Create ADMIN role if it doesn't exist
+            if (!roleRepository.existsByName("ADMIN")) {
+                Role adminRole = Role.builder().name("ADMIN").build();
                 roleRepository.save(adminRole);
             }
 
-            // Create an EMPLOYEE role if it doesn't exist
+            // Create EMPLOYEE role if it doesn't exist
             if (!roleRepository.existsByName("EMPLOYEE")) {
-                Role employeeRole = Role.builder()
-                        .name("EMPLOYEE")
-                        .build();
+                Role employeeRole = Role.builder().name("EMPLOYEE").build();
                 roleRepository.save(employeeRole);
+            }
+
+            // Create MANAGER role if it doesn't exist
+            if (!roleRepository.existsByName("MANAGER")) {
+                Role managerRole = Role.builder().name("MANAGER").build();
+                roleRepository.save(managerRole);
             }
 
             // Create an admin user if not exists

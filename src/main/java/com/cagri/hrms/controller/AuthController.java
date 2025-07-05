@@ -25,9 +25,9 @@ public class AuthController {
 
     // POST /api/auth/register
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request) {
-        AuthResponseDTO response = authService.register(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequestDTO dto) {
+        authService.register(dto);
+        return ResponseEntity.ok("Registration successful. Please check your email to verify your account.");
     }
 
     // POST /api/auth/login

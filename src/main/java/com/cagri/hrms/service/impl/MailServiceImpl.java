@@ -4,6 +4,7 @@ import com.cagri.hrms.service.MailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -15,6 +16,38 @@ public class MailServiceImpl implements MailService {
 
     private final JavaMailSender mailSender;
 
+    // Sender address is injected from .env
+    @Value("${spring.mail.username}")
+    private String fromEmail;
+
+    @Async
+    @Override
+    public void sendCompanyVerificationEmail(String companyEmail, String managerFullName, String companyName, String token) {
+        String subject = "New Registration Confirmation - " + companyName;
+        String verificationLink = "http://localhost:3000/verify?token=" + token;
+
+        String content = """
+            <p>Dear Representative,</p>
+            <p><strong>%s</strong> has registered on our platform on behalf of <strong>%s</strong>.</p>
+            <p>Please click the link below to activate the account:</p>
+            <p><a href="%s">Activate Account</a></p>
+            <p>Thank you.</p>
+            """.formatted(managerFullName, companyName, verificationLink);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail); // Set sender
+            helper.setTo(companyEmail);
+            helper.setSubject(subject);
+            helper.setText(content, true);
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new IllegalStateException("Failed to send company verification email", e);
+        }
+    }
+
     @Async
     @Override
     public void sendVerificationEmail(String to, String token) {
@@ -22,6 +55,7 @@ public class MailServiceImpl implements MailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
+            helper.setFrom(fromEmail); // Set sender
             helper.setTo(to);
             helper.setSubject("Verify your email");
             helper.setText(
@@ -33,7 +67,7 @@ public class MailServiceImpl implements MailService {
 
             mailSender.send(message);
         } catch (MessagingException e) {
-            throw new IllegalStateException("Failed to send email", e);
+            throw new IllegalStateException("Failed to send verification email", e);
         }
     }
 
@@ -53,9 +87,10 @@ public class MailServiceImpl implements MailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail); // Set sender
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(body, true); // true = HTML
+            helper.setText(body, true);
 
             mailSender.send(message);
         } catch (MessagingException e) {

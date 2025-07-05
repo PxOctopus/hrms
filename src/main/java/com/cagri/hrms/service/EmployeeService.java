@@ -1,7 +1,8 @@
 package com.cagri.hrms.service;
 
-import com.cagri.hrms.dto.request.employee.EmployeeRequestDTO;
+import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
+import com.cagri.hrms.entity.User;
 
 import java.util.List;
 
@@ -11,10 +12,9 @@ public interface EmployeeService {
 
     EmployeeResponseDTO getEmployeeById(Long id);
 
-    EmployeeResponseDTO updateEmployee(Long id, EmployeeRequestDTO requestDTO);
-
     void deleteEmployee(Long id);
 
-    EmployeeResponseDTO createEmployee(EmployeeRequestDTO internalDTO);
+    EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO dto, User authenticatedUser);
 
+    EmployeeResponseDTO updateEmployee(Long id, EmployeeCreateRequestDTO dto, User user);
 }

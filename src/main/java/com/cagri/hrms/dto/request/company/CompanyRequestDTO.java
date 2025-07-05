@@ -23,6 +23,4 @@ public class CompanyRequestDTO {
     @NotNull(message = "Subscription plan is required")
     private SubscriptionPlan subscriptionPlan;
 
-    @NotNull(message = "Manager user ID is required")
-    private Long managerUserId;
 }

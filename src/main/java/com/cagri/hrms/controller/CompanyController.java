@@ -18,7 +18,7 @@ public class CompanyController {
 
     @PostMapping
     public ResponseEntity<CompanyResponseDTO> createCompany(@RequestBody CompanyRequestDTO dto) {
-        return ResponseEntity.ok(companyService.createCompany(dto, dto.getManagerUserId()));
+        return ResponseEntity.ok(companyService.createCompany(dto));
     }
 
     @GetMapping("/{id}")

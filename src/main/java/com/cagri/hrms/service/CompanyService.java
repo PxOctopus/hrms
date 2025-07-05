@@ -6,7 +6,8 @@ import com.cagri.hrms.dto.response.company.CompanyResponseDTO;
 import java.util.List;
 
 public interface CompanyService {
-    CompanyResponseDTO createCompany(CompanyRequestDTO dto, Long managerUserId);
+
+    CompanyResponseDTO createCompany(CompanyRequestDTO dto);
 
     List<CompanyResponseDTO> getAllCompanies();
 

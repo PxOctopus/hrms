@@ -23,6 +23,9 @@ public class Company {
     @Column(name = "company_name", nullable = false)
     private String companyName;
 
+    @Column(name = "company_email", nullable = false, unique = true)
+    private String companyEmail;
+
     @Builder.Default
     @Column(name = "number_of_employees")
     private Integer numberOfEmployees = 0;

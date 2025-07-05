@@ -6,8 +6,14 @@ import com.cagri.hrms.dto.request.general.ForgotPasswordRequestDTO;
 import com.cagri.hrms.dto.request.general.ResetPasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.VerifyEmailRequestDTO;
 import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
+import com.cagri.hrms.entity.Company;
+import com.cagri.hrms.entity.Employee;
 import com.cagri.hrms.entity.Role;
 import com.cagri.hrms.entity.User;
+import com.cagri.hrms.exception.BusinessException;
+import com.cagri.hrms.mapper.AuthMapper;
+import com.cagri.hrms.repository.CompanyRepository;
+import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.AuthService;
@@ -22,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -35,42 +42,91 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final MailService mailService;
+    private final CompanyRepository companyRepository;
+    private final EmployeeRepository employeeRepository;
+    private final AuthMapper authMapper;
 
     @Override
     public AuthResponseDTO register(RegisterRequestDTO request) {
-        // Check if the email is already used
+        // Check if email is already in use
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email is already in use");
+            throw new BusinessException("Email is already in use");
         }
 
-        // Load default role for new users (usually EMPLOYEE)
-        Role defaultRole = roleRepository.findByName("EMPLOYEE")
-                .orElseThrow(() -> new RuntimeException("Default role not found"));
+        // Check if password and confirmPassword match
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException("Password and confirmation do not match");
+        }
 
-        // Generate email verification token
-        String verificationToken = UUID.randomUUID().toString();
+        // Determine role name or default to EMPLOYEE
+        String roleName = Optional.ofNullable(request.getRoleName()).orElse("EMPLOYEE");
 
-        // Build the user entity
-        User user = User.builder()
-                .fullName(request.getFullName())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(defaultRole)
-                .emailVerified(false)
-                .isActive(true)
-                .createdAt(LocalDate.now())
-                .verificationToken(verificationToken)
-                .build();
+        // Fetch role from database
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new BusinessException("Role not found: " + roleName));
 
-        // Save the user in the database
+        // Initialize company as null (in case role is EMPLOYEE and company already exists)
+        Company company;
+
+        // If role is MANAGER, create a new company
+        if ("MANAGER".equalsIgnoreCase(roleName)) {
+            // Map and save new company from request
+            company = authMapper.toCompany(request);
+            companyRepository.save(company);
+        } else {
+            // Find existing company by name and email
+            company = companyRepository.findByCompanyNameAndCompanyEmail(
+                    request.getCompanyName(),
+                    request.getCompanyEmail()
+            ).orElseThrow(() -> new BusinessException("Company not found with provided name and email"));
+        }
+
+        // Map request to User entity
+        User user = authMapper.toUser(request);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setVerificationToken(UUID.randomUUID().toString());
+        user.setRole(role);
+        user.setCompany(company);
+        user.setEnabled(false); // User is initially disabled until email verification
+
+
+        // If the user is a manager, also set them as companyManager
+        if ("MANAGER".equalsIgnoreCase(roleName)) {
+            company.setCompanyManager(user); // Set user as manager
+            companyRepository.save(company);
+        }
+
+        // Save user
         userRepository.save(user);
 
-        // Send the verification email
-        mailService.sendVerificationEmail(user.getEmail(), verificationToken);
+        // If the user is an employee, create an Employee record
+        if ("EMPLOYEE".equalsIgnoreCase(roleName)) {
+            Employee employee = new Employee();
+            employee.setUser(user);
+            employee.setCompany(company);
+            employee.setHireDate(LocalDate.now());
+            employee.setActive(true);
+            employee.setCreatedAt(System.currentTimeMillis());
+            employeeRepository.save(employee);
+        }
 
-        // Generate JWT token for login response
+        // Send verification email based on role
+        if ("MANAGER".equalsIgnoreCase(roleName)) {
+            mailService.sendCompanyVerificationEmail(
+                    request.getCompanyEmail(),
+                    user.getFullName(),
+                    company.getCompanyName(),
+                    user.getVerificationToken()
+            );
+        } else {
+            mailService.sendVerificationEmail(
+                    request.getEmail(),
+                    user.getVerificationToken()
+            );
+        }
+
+        // Generate and return JWT token
         String token = jwtService.generateToken(user);
-
         return new AuthResponseDTO(token);
     }
 
@@ -100,7 +156,7 @@ public class AuthServiceImpl implements AuthService {
 
         String resetToken = UUID.randomUUID().toString();
         user.setResetToken(resetToken);
-        user.setResetTokenExpiry(LocalDate.now().plusDays(1)); // 1 gün geçerli
+        user.setResetTokenExpiry(LocalDate.now().plusDays(1)); //
 
         userRepository.save(user);
 
@@ -128,7 +184,7 @@ public class AuthServiceImpl implements AuthService {
     public void verifyEmail(VerifyEmailRequestDTO request) {
         User user = userRepository.findByVerificationToken(request.getToken())
                 .orElseThrow(() -> new RuntimeException("Invalid verification token"));
-
+        user.setEnabled(true);
         user.setEmailVerified(true);
         user.setVerificationToken(null);
 

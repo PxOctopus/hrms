@@ -1,7 +1,6 @@
 package com.cagri.hrms.mapper;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
-import com.cagri.hrms.dto.request.employee.EmployeeRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.Company;
 import com.cagri.hrms.entity.Employee;
@@ -11,24 +10,11 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface EmployeeMapper {
 
-    // Maps fields from Employee entity to DTO
     @Mapping(source = "user.fullName", target = "fullName")
     @Mapping(source = "user.email", target = "email")
     @Mapping(source = "company.companyName", target = "companyName")
     EmployeeResponseDTO toDTO(Employee employee);
 
-    @Mapping(target = "userId", ignore = true)
-    @Mapping(target = "companyId", ignore = true)
-    EmployeeRequestDTO toRequestDTO(EmployeeCreateRequestDTO dto);
-
-    @Mapping(target = "user", ignore = true)
-    @Mapping(target = "company", ignore = true)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", expression = "java(System.currentTimeMillis())")
-    void updateFromDto(EmployeeRequestDTO dto, @MappingTarget Employee employee);
-
-    // Maps fields from DTO and binds context params manually (don't use source for context)
     @Mapping(target = "birthDate", source = "dto.birthDate")
     @Mapping(target = "hireDate", source = "dto.hireDate")
     @Mapping(target = "endDate", source = "dto.endDate")
@@ -41,16 +27,18 @@ public interface EmployeeMapper {
     @Mapping(target = "isActive", constant = "true")
     @Mapping(target = "createdAt", expression = "java(System.currentTimeMillis())")
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "user", ignore = true)     // set manually in @AfterMapping
-    @Mapping(target = "company", ignore = true)  // set manually in @AfterMapping
-    Employee toEntity(EmployeeRequestDTO dto, @Context User user, @Context Company company);
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "company", ignore = true)
+    Employee toEntity(EmployeeCreateRequestDTO dto, @Context User user, @Context Company company);
 
-    // Manually assign context parameters to the entity after mapping
-    @org.mapstruct.AfterMapping
+    @AfterMapping
     default void assignUserAndCompany(@MappingTarget Employee employee,
                                       @Context User user,
                                       @Context Company company) {
         employee.setUser(user);
         employee.setCompany(company);
     }
+
+    @Mapping(target = "updatedAt", expression = "java(System.currentTimeMillis())")
+    void updateFromDto(EmployeeCreateRequestDTO dto, @MappingTarget Employee employee);
 }
