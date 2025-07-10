@@ -40,13 +40,13 @@ public class UserController {
 
     /**
      * Changes the email address of the currently authenticated user.
-     * Usually triggers email verification for the new address.
+     * Sends a verification email to the new address and disables login until verified.
      */
     @PutMapping("/change-email")
     public ResponseEntity<MessageResponseDTO> changeEmail(@AuthenticationPrincipal CustomUserDetails currentUser,
                                          @RequestBody ChangeEmailRequestDTO dto) {
         userService.changeEmail(currentUser.getId(), dto);
-        return ResponseEntity.ok(new MessageResponseDTO("Email updated. Verification email sent."));
+        return ResponseEntity.ok(new MessageResponseDTO("Email changed. Please verify your new email to log in."));
     }
 
     /**

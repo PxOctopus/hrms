@@ -6,9 +6,11 @@ import com.cagri.hrms.dto.request.user.UserRequestDTO;
 import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.entity.Role;
 import com.cagri.hrms.entity.User;
+import com.cagri.hrms.exception.BusinessException;
 import com.cagri.hrms.mapper.UserMapper;
 import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
+import com.cagri.hrms.service.MailService;
 import com.cagri.hrms.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import com.cagri.hrms.exception.ResourceNotFoundException;
 
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +31,7 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final MailService mailService;
 
     @Override
     public User getUserByEmail(String email) {
@@ -97,7 +101,16 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
-        user.setIsActive(false); // Veya setEnabled(false) — entity'deki isme göre değişir
+        // If the user to be deactivated is a MANAGER and there is only one active MANAGER in the system,
+// prevent deactivation to ensure the system always has at least one active manager.
+        if ("MANAGER".equalsIgnoreCase(user.getRole().getName()) &&
+                userRepository.countByRoleNameAndEnabledTrue("MANAGER") <= 1) {
+            throw new BusinessException("You cannot deactivate the only active manager in the system.");
+        }
+
+// Proceed to deactivate the user: disable login and mark the account as inactive.
+        user.setIsActive(false);
+        user.setEnabled(false); // Prevent login
         userRepository.save(user);
     }
 
@@ -110,8 +123,19 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
+        // Set new email first
         user.setEmail(dto.getNewEmail());
+
+        // Then generate a verification token and update the status
+        String verificationToken = UUID.randomUUID().toString();
+        user.setVerificationToken(verificationToken);
+        user.setEmailVerified(false);
+        user.setEnabled(false); // block login until verification
+
         userRepository.save(user);
+
+        // Send to the updated (new) email address
+        mailService.sendVerificationEmail(user.getEmail(), verificationToken);
     }
 
     @Override

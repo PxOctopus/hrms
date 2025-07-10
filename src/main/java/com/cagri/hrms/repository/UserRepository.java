@@ -19,4 +19,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByResetToken(String token);
 
+    // Returns the number of active users (enabled = true) with the role name "MANAGER"
+    int countByRoleNameAndEnabledTrue(String roleName);
+
 }
