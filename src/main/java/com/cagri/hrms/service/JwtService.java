@@ -1,6 +1,6 @@
 package com.cagri.hrms.service;
 import io.jsonwebtoken.Jwts;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.User;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;

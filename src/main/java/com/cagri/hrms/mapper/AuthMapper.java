@@ -1,8 +1,8 @@
 package com.cagri.hrms.mapper;
 
 import com.cagri.hrms.dto.request.auth.RegisterRequestDTO;
-import com.cagri.hrms.entity.Company;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.Company;
+import com.cagri.hrms.entity.core.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;

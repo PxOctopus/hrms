@@ -1,7 +1,7 @@
 package com.cagri.hrms.config;
 
-import com.cagri.hrms.entity.Role;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.Role;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class DataSeeder {
             }
 
             // Create an admin user if not exists
-            if (userRepository.count() == 0) {
+            if (!userRepository.existsByEmail(adminEmail))  {
                 Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
 
                 User admin = User.builder()

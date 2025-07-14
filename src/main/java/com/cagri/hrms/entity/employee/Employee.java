@@ -1,5 +1,7 @@
-package com.cagri.hrms.entity;
+package com.cagri.hrms.entity.employee;
 
+import com.cagri.hrms.entity.core.Company;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.enums.ContractType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -8,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -28,6 +31,9 @@ public class Employee {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id") // foreign key to tbl_company
     private Company company;
+
+    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL)
+    private List<EmployeeShift> employeeShifts;
 
     // PERSONAL DETAILS
     @Column(name = "birth_date")
@@ -72,4 +78,5 @@ public class Employee {
 
     @Column(name = "updated_at")
     private Long updatedAt;
+
 }

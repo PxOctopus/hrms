@@ -7,5 +7,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthResponseDTO {
     private final String accessToken;
+    private final String role;
     private final String tokenType = "Bearer";
 }

@@ -2,13 +2,12 @@ package com.cagri.hrms.service.impl;
 
 import com.cagri.hrms.dto.request.company.CompanyRequestDTO;
 import com.cagri.hrms.dto.response.company.CompanyResponseDTO;
-import com.cagri.hrms.entity.Company;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.Company;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.exception.BusinessException;
 import com.cagri.hrms.exception.ResourceNotFoundException;
 import com.cagri.hrms.mapper.CompanyMapper;
 import com.cagri.hrms.repository.CompanyRepository;
-import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.CompanyService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

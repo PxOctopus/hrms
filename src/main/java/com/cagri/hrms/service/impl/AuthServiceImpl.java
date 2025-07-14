@@ -6,10 +6,10 @@ import com.cagri.hrms.dto.request.general.ForgotPasswordRequestDTO;
 import com.cagri.hrms.dto.request.general.ResetPasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.VerifyEmailRequestDTO;
 import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
-import com.cagri.hrms.entity.Company;
-import com.cagri.hrms.entity.Employee;
-import com.cagri.hrms.entity.Role;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.Company;
+import com.cagri.hrms.entity.employee.Employee;
+import com.cagri.hrms.entity.core.Role;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.exception.BusinessException;
 import com.cagri.hrms.mapper.AuthMapper;
 import com.cagri.hrms.repository.CompanyRepository;
@@ -127,7 +127,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Generate and return JWT token
         String token = jwtService.generateToken(user);
-        return new AuthResponseDTO(token);
+        return new AuthResponseDTO(token, user.getRole().getName());
     }
 
     @Override
@@ -146,7 +146,7 @@ public class AuthServiceImpl implements AuthService {
         // Generate JWT token
         String token = jwtService.generateToken(user);
 
-        return new AuthResponseDTO(token);
+        return new AuthResponseDTO(token, user.getRole().getName());
     }
 
     @Override

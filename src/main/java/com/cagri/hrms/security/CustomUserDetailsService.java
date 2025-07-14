@@ -1,6 +1,6 @@
 package com.cagri.hrms.security;
 
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;

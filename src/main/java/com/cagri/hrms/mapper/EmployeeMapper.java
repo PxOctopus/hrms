@@ -2,9 +2,9 @@ package com.cagri.hrms.mapper;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
-import com.cagri.hrms.entity.Company;
-import com.cagri.hrms.entity.Employee;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.Company;
+import com.cagri.hrms.entity.employee.Employee;
+import com.cagri.hrms.entity.core.User;
 import org.mapstruct.*;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)

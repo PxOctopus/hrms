@@ -1,4 +1,4 @@
-package com.cagri.hrms.entity;
+package com.cagri.hrms.entity.core;
 
 import com.cagri.hrms.enums.EmployeeLimitLevel;
 import com.cagri.hrms.enums.SubscriptionPlan;

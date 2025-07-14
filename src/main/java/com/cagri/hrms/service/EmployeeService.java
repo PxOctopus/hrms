@@ -2,7 +2,7 @@ package com.cagri.hrms.service;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.User;
 
 import java.util.List;
 

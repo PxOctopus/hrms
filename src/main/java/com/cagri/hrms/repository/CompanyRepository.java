@@ -1,8 +1,6 @@
 package com.cagri.hrms.repository;
 
-import com.cagri.hrms.dto.request.company.CompanyRequestDTO;
-import com.cagri.hrms.dto.response.company.CompanyResponseDTO;
-import com.cagri.hrms.entity.Company;
+import com.cagri.hrms.entity.core.Company;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

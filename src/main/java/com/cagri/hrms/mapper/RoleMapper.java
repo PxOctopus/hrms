@@ -1,7 +1,7 @@
 package com.cagri.hrms.mapper;
 
 import com.cagri.hrms.dto.response.role.RoleResponseDTO;
-import com.cagri.hrms.entity.Role;
+import com.cagri.hrms.entity.core.Role;
 import org.mapstruct.Mapper;
 import org.mapstruct.ReportingPolicy;
 

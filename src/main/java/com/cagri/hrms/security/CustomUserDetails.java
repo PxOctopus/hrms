@@ -1,6 +1,6 @@
 package com.cagri.hrms.security;
 
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.User;
 import lombok.AllArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

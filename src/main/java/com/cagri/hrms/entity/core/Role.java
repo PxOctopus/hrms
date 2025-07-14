@@ -1,4 +1,4 @@
-package com.cagri.hrms.entity;
+package com.cagri.hrms.entity.core;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

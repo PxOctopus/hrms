@@ -4,7 +4,7 @@ import com.cagri.hrms.dto.request.user.ChangeEmailRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangePasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.UserRequestDTO;
 import com.cagri.hrms.dto.response.user.UserResponseDTO;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.User;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;

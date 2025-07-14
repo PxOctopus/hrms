@@ -2,21 +2,16 @@ package com.cagri.hrms.service.impl;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
-import com.cagri.hrms.entity.Company;
-import com.cagri.hrms.entity.Employee;
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.Company;
+import com.cagri.hrms.entity.employee.Employee;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.mapper.EmployeeMapper;
-import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
-import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.EmployeeService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @Service

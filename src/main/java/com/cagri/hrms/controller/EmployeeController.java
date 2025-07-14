@@ -2,8 +2,7 @@ package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
-import com.cagri.hrms.entity.User;
-import com.cagri.hrms.mapper.EmployeeMapper;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.UserService;
 import jakarta.validation.Valid;

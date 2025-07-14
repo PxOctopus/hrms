@@ -1,6 +1,6 @@
 package com.cagri.hrms.repository;
 
-import com.cagri.hrms.entity.Employee;
+import com.cagri.hrms.entity.employee.Employee;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -17,4 +17,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByEmail(String email);
 
     int countByCompanyId(Long companyId);
+
+    Optional<Employee> findByUserId(Long userId);
 }

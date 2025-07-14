@@ -1,6 +1,6 @@
 package com.cagri.hrms.repository;
 
-import com.cagri.hrms.entity.User;
+import com.cagri.hrms.entity.core.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
