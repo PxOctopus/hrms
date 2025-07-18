@@ -20,13 +20,19 @@ public class Break {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "break_name", nullable = false)
     private String breakName;
 
+    @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
 
+    @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
 
-    @ManyToOne
-    @JoinColumn(name = "employee_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
+
+    @Column(nullable = false)
+    private boolean active = true; // For soft delete or status tracking
 }
