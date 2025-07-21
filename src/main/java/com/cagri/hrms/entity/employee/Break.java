@@ -29,9 +29,15 @@ public class Break {
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
 
+    // The employee who owns this break
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
+
+    // The employee shift this break belongs to
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_shift_id", nullable = false)
+    private EmployeeShift employeeShift;
 
     @Column(nullable = false)
     private boolean active = true; // For soft delete or status tracking

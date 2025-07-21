@@ -23,7 +23,7 @@ public class EmployeeController {
     private final EmployeeService employeeService;
     private final UserService userService;
 
-    @PreAuthorize("hasRole('COMPANY_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping
     public ResponseEntity<EmployeeResponseDTO> createEmployee(
             @RequestBody @Valid EmployeeCreateRequestDTO createDTO,
@@ -33,19 +33,19 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.createEmployee(createDTO, authenticatedUser));
     }
 
-    @PreAuthorize("hasRole('COMPANY_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/{id}")
     public ResponseEntity<EmployeeResponseDTO> getEmployeeById(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.getEmployeeById(id));
     }
 
-    @PreAuthorize("hasRole('COMPANY_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping
     public ResponseEntity<List<EmployeeResponseDTO>> getAllEmployees() {
         return ResponseEntity.ok(employeeService.getAllEmployees());
     }
 
-    @PreAuthorize("hasRole('COMPANY_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @PutMapping("/{id}")
     public ResponseEntity<EmployeeResponseDTO> updateEmployee(
             @PathVariable Long id,
@@ -56,7 +56,7 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.updateEmployee(id, updateDTO, authenticatedUser));
     }
 
-    @PreAuthorize("hasRole('COMPANY_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
         employeeService.deleteEmployee(id);

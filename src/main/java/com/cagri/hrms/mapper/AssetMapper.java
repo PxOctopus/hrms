@@ -11,6 +11,6 @@ public interface AssetMapper {
 
     Asset toEntity(AssetRequestDTO dto);
 
-    @Mapping(source = "employee.fullName", target = "employeeFullName")
+    @Mapping(source = "employee.user.fullName", target = "employeeFullName")
     AssetResponseDTO toDto(Asset asset);
 }

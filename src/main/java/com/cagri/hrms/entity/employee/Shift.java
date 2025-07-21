@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Entity
@@ -24,9 +25,9 @@ public class Shift {
 
     private String shiftName;
 
-    private LocalDateTime startTime;
+    private LocalTime startTime;
 
-    private LocalDateTime endTime;
+    private LocalTime endTime;
 
     @ManyToOne
     @JoinColumn(name = "company_id")
@@ -34,5 +35,4 @@ public class Shift {
 
     @OneToMany(mappedBy = "shift", cascade = CascadeType.ALL)
     private List<EmployeeShift> employeeShifts;
-
 }

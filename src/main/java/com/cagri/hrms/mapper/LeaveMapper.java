@@ -19,7 +19,7 @@ public interface LeaveMapper {
     Leave toEntity(LeaveRequestDTO dto);
 
     @Mapping(source = "employee.id", target = "employeeId")
-    @Mapping(source = "employee.fullName", target = "employeeFullName")
+    @Mapping(source = "employee.user.fullName", target = "employeeFullName")
     @Mapping(source = "leaveDefinition.name", target = "leaveDefinitionName")
     LeaveResponseDTO toDto(Leave leave);
 }

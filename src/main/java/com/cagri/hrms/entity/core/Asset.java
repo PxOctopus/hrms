@@ -28,6 +28,9 @@ public class Asset {
 
     private boolean confirmed;
 
+    @Column(nullable = false)
+    private boolean active = true;
+
     @ManyToOne
     @JoinColumn(name = "employee_id")
     private Employee employee;

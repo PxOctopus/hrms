@@ -11,13 +11,11 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface BreakMapper {
 
-    // Maps BreakRequestDTO to Break entity
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "employee", ignore = true) // ignore employee, set manually in service
+    @Mapping(target = "employee", ignore = true)
     Break toEntity(BreakRequestDTO dto);
 
-    // Maps Break entity to BreakResponseDTO
     @Mapping(target = "employeeId", source = "employee.id")
-    @Mapping(target = "employeeFullName", source = "employee.fullName")
+    @Mapping(target = "employeeFullName", source = "employee.user.fullName")
     BreakResponseDTO toDto(Break breakEntity);
 }
