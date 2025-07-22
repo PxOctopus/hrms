@@ -192,7 +192,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void verifyEmail(VerifyEmailRequestDTO request) {
         User user = userRepository.findByVerificationToken(request.getToken())
-                .orElseThrow(() -> new RuntimeException("Invalid verification token"));
+                .orElseThrow(() -> new BusinessException("Invalid verification token"));
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new BusinessException("Account already verified.");
+        }
         user.setEnabled(true);
         user.setEmailVerified(true);
         user.setVerificationToken(null);

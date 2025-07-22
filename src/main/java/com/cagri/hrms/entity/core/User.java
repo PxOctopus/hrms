@@ -33,7 +33,7 @@ public class User {
     private String password;
 
     @Column(name = "email_verified")
-    private Boolean emailVerified;
+    private Boolean emailVerified = false;
 
     @Column(name = "enabled")
     private boolean enabled; // Used by Spring Security for account status (true = enabled)
