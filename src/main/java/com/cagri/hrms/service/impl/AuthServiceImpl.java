@@ -65,6 +65,15 @@ public class AuthServiceImpl implements AuthService {
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new BusinessException("Role not found: " + roleName));
 
+        // If employee, enforce email domain match with company
+        if ("EMPLOYEE".equalsIgnoreCase(roleName)) {
+            String expectedDomain = request.getCompanyEmail().split("@")[1];
+            String userDomain = request.getEmail().split("@")[1];
+            if (!userDomain.equalsIgnoreCase(expectedDomain)) {
+                throw new BusinessException("Employee email must match company domain: @" + expectedDomain);
+            }
+        }
+
         // Initialize company as null (in case role is EMPLOYEE and company already exists)
         Company company;
 
