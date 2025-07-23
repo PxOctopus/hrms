@@ -12,4 +12,5 @@ public class UserResponseDTO {
     private final String fullName;
     private final String email;
     private String role;
+    private String pendingCompanyName;
 }

@@ -35,6 +35,9 @@ public class User {
     @Column(name = "email_verified")
     private Boolean emailVerified = false;
 
+    @Column(name = "pending_company_name")
+    private String pendingCompanyName;
+
     @Column(name = "enabled")
     private boolean enabled; // Used by Spring Security for account status (true = enabled)
 
@@ -62,4 +65,6 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
     private Company company;
+
+
 }

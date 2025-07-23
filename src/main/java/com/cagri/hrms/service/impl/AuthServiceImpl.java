@@ -47,69 +47,71 @@ public class AuthServiceImpl implements AuthService {
     private final EmployeeRepository employeeRepository;
     private final AuthMapper authMapper;
 
+    /**
+     * Registers a new user (EMPLOYEE or MANAGER) into the system.
+     * - If the user is an EMPLOYEE: associates with an existing company.
+     * - If the user is a MANAGER: does not create a company but saves the intended company name as pending.
+     * - Sends a verification email after registration.
+     *
+     * @param request The registration form data.
+     * @return AuthResponseDTO containing JWT token and role name.
+     * @throws BusinessException if email already exists, password mismatch, or company info is invalid.
+     */
     @Override
     public AuthResponseDTO register(RegisterRequestDTO request) {
-        // Check if email is already in use
+
+        // 1. Check if the email is already registered
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException("Email is already in use");
         }
 
-        // Check if password and confirmPassword match
+        // 2. Validate password confirmation
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException("Password and confirmation do not match");
         }
 
-        // Determine role name or default to EMPLOYEE
+        // 3. Determine user role or default to EMPLOYEE
         String roleName = Optional.ofNullable(request.getRoleName()).orElse("EMPLOYEE");
 
-        // Fetch role from database
+        // 4. Fetch role entity from the database
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new BusinessException("Role not found: " + roleName));
 
-        // If employee, enforce email domain match with company
+        // 5. Company will be determined if the user is an employee
+        Company company = null;
+
         if ("EMPLOYEE".equalsIgnoreCase(roleName)) {
+            // 5.1 Check that employee email domain matches company domain
             String expectedDomain = request.getCompanyEmail().split("@")[1];
             String userDomain = request.getEmail().split("@")[1];
             if (!userDomain.equalsIgnoreCase(expectedDomain)) {
                 throw new BusinessException("Employee email must match company domain: @" + expectedDomain);
             }
-        }
 
-        // Initialize company as null (in case role is EMPLOYEE and company already exists)
-        Company company;
-
-        // If role is MANAGER, create a new company
-        if ("MANAGER".equalsIgnoreCase(roleName)) {
-            // Map and save new company from request
-            company = authMapper.toCompany(request);
-            companyRepository.save(company);
-        } else {
-            // Find existing company by name and email
+            // 5.2 Fetch the existing company by name and email
             company = companyRepository.findByCompanyNameAndCompanyEmail(
                     request.getCompanyName(),
                     request.getCompanyEmail()
             ).orElseThrow(() -> new BusinessException("Company not found with provided name and email"));
         }
 
-        // Map request to User entity
+        // 6. Map the request to a User entity
         User user = authMapper.toUser(request);
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setVerificationToken(UUID.randomUUID().toString());
-        user.setRole(role);
-        user.setCompany(company);
-        user.setEnabled(false); // User is initially disabled until email verification
+        user.setPassword(passwordEncoder.encode(request.getPassword()));           // Hash password
+        user.setVerificationToken(UUID.randomUUID().toString());                   // Set email verification token
+        user.setRole(role);                                                        // Set user role
+        user.setCompany(company);                                                  // Null for MANAGERs
+        user.setEnabled(false);                                                    // Disable account until email verification
 
-
-        // If the user is a manager, also set them as companyManager
+        // 7. If manager, save company name as "pending" (company will be created later)
         if ("MANAGER".equalsIgnoreCase(roleName)) {
-            company.setCompanyManager(user); // Set user as manager
-            companyRepository.save(company);
+            user.setPendingCompanyName(request.getCompanyName());
         }
 
-        // Save user
+        // 8. Save user to DB
         userRepository.save(user);
 
-        // If the user is an employee, create an Employee record
+        // 9. If EMPLOYEE, create and link Employee entity
         if ("EMPLOYEE".equalsIgnoreCase(roleName)) {
             Employee employee = new Employee();
             employee.setUser(user);
@@ -120,22 +122,13 @@ public class AuthServiceImpl implements AuthService {
             employeeRepository.save(employee);
         }
 
-        // Send verification email based on role
-        if ("MANAGER".equalsIgnoreCase(roleName)) {
-            mailService.sendCompanyVerificationEmail(
-                    request.getCompanyEmail(),
-                    user.getFullName(),
-                    company.getCompanyName(),
-                    user.getVerificationToken()
-            );
-        } else {
-            mailService.sendVerificationEmail(
-                    request.getEmail(),
-                    user.getVerificationToken()
-            );
-        }
+        // 10. Send email verification link
+        mailService.sendVerificationEmail(
+                request.getEmail(),
+                user.getVerificationToken()
+        );
 
-        // Generate and return JWT token
+        // 11. Generate JWT token and return response
         String token = jwtService.generateToken(user);
         return new AuthResponseDTO(token, user.getRole().getName());
     }
