@@ -8,6 +8,7 @@ import com.cagri.hrms.entity.employee.Employee;
 import com.cagri.hrms.mapper.AssetMapper;
 import com.cagri.hrms.repository.AssetRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
+import com.cagri.hrms.security.CustomUserDetails;
 import com.cagri.hrms.service.AssetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -58,7 +59,8 @@ public class AssetServiceImpl implements AssetService {
     @Override
     public List<AssetResponseDTO> getAssetsOfLoggedInEmployee() {
         // Get the currently authenticated user from the security context
-        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        CustomUserDetails customUserDetails = (CustomUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = customUserDetails.getUser();
 
         // Find the corresponding Employee entity for the logged-in user
         Employee employee = employeeRepository.findByUserId(user.getId())

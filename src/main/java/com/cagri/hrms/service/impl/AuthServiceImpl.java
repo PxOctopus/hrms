@@ -16,6 +16,7 @@ import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
+import com.cagri.hrms.security.CustomUserDetails;
 import com.cagri.hrms.service.AuthService;
 import com.cagri.hrms.service.JwtService;
 import com.cagri.hrms.service.MailService;
@@ -149,8 +150,9 @@ public class AuthServiceImpl implements AuthService {
                 )
         );
 
-        // Cast to your CustomUserDetails or use directly if User implements UserDetails
-        User user = (User) authentication.getPrincipal();
+        // Cast to CustomUserDetails
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        User user = userDetails.getUser();
 
         // Generate JWT token
         String token = jwtService.generateToken(user);

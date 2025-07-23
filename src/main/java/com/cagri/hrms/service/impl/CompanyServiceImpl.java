@@ -30,7 +30,18 @@ public class CompanyServiceImpl implements CompanyService {
     public CompanyResponseDTO createCompany(CompanyRequestDTO dto) {
         // Get the currently authenticated user from the security context
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User manager = (User) auth.getPrincipal();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new BusinessException("No authenticated user found.");
+        }
+
+        Object principal = auth.getPrincipal();
+        User manager;
+
+        if (principal instanceof com.cagri.hrms.security.CustomUserDetails customUserDetails) {
+            manager = customUserDetails.getUser();
+        } else {
+            throw new BusinessException("Unsupported principal type: " + principal.getClass().getName());
+        }
 
         // Prevent duplicate company creation by name (case-insensitive)
         if (companyRepository.existsByCompanyNameIgnoreCase(dto.getCompanyName())) {
