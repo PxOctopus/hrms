@@ -58,7 +58,7 @@ public class User {
     private LocalDate createdAt;
 
     // RELATIONS
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER) // TODO: Using EAGER here ensures role is loaded immediately to avoid LazyInitializationException during token generation. In larger systems, consider DTO projection or @EntityGraph to avoid performance issues.
     @JoinColumn(name = "role_id")
     private Role role;
 

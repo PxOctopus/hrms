@@ -4,6 +4,7 @@ import com.cagri.hrms.entity.core.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,4 +25,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     int countByRoleNameAndEnabledTrue(String roleName);
 
     List<User> findByPendingCompanyNameIsNotNullAndEnabledFalse();
+
+    List<User> findByRoleNameAndPendingCompanyNameNotNull(String roleName);
 }

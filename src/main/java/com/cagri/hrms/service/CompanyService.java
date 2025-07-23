@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface CompanyService {
 
-//    CompanyResponseDTO createCompany(CompanyRequestDTO dto);
+    CompanyResponseDTO createCompany(CompanyRequestDTO dto);
 
     List<CompanyResponseDTO> getAllCompanies();
 
@@ -21,4 +21,5 @@ public interface CompanyService {
     CompanyResponseDTO approvePendingCompany(Long userId);
 
     List<UserResponseDTO> getPendingCompanyManagers();
+
 }

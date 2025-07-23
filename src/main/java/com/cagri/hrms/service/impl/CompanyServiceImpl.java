@@ -17,6 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import com.cagri.hrms.enums.EmployeeLimitLevel;
+import com.cagri.hrms.enums.SubscriptionPlan;
+
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,79 +34,85 @@ public class CompanyServiceImpl implements CompanyService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
 
-//    @Override
-//    public CompanyResponseDTO createCompany(CompanyRequestDTO dto) {
-//        // Get the currently authenticated user from the security context
-//        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-//        if (auth == null || !auth.isAuthenticated()) {
-//            throw new BusinessException("No authenticated user found.");
-//        }
-//
-//        Object principal = auth.getPrincipal();
-//        User manager;
-//
-//        if (principal instanceof com.cagri.hrms.security.CustomUserDetails customUserDetails) {
-//            manager = customUserDetails.getUser();
-//        } else {
-//            throw new BusinessException("Unsupported principal type: " + principal.getClass().getName());
-//        }
-//
-//        // Prevent duplicate company creation by name (case-insensitive)
-//        if (companyRepository.existsByCompanyNameIgnoreCase(dto.getCompanyName())) {
-//            throw new BusinessException("Company already exists with name: " + dto.getCompanyName());
-//        }
-//
-//        // Map DTO to Company entity using mapper
-//        Company company = companyMapper.toEntity(dto, manager);
-//
-//        // Set audit fields (since updateAt was ignored in mapping)
-//        company.setUpdateAt(System.currentTimeMillis());
-//
-//        // Save and return the company
-//        Company saved = companyRepository.save(company);
-//        return companyMapper.toDTO(saved);
-//    }
+
+    @Override
+    public CompanyResponseDTO createCompany(CompanyRequestDTO dto) {
+        // Get the currently authenticated user from the security context
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new BusinessException("No authenticated user found.");
+        }
+
+        Object principal = auth.getPrincipal();
+        User manager;
+
+        if (principal instanceof com.cagri.hrms.security.CustomUserDetails customUserDetails) {
+            manager = customUserDetails.getUser();
+        } else {
+            throw new BusinessException("Unsupported principal type: " + principal.getClass().getName());
+        }
+
+        // Prevent duplicate company creation by name (case-insensitive)
+        if (companyRepository.existsByCompanyNameIgnoreCase(dto.getCompanyName())) {
+            throw new BusinessException("Company already exists with name: " + dto.getCompanyName());
+        }
+
+        // Map DTO to Company entity using mapper
+        Company company = companyMapper.toEntity(dto, manager);
+
+        // Set audit fields (since updateAt was ignored in mapping)
+        company.setUpdateAt(System.currentTimeMillis());
+
+        // Save and return the company
+        Company saved = companyRepository.save(company);
+        return companyMapper.toDTO(saved);
+    }
 
     @Override
     public CompanyResponseDTO approvePendingCompany(Long userId) {
-        User manager = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Manager not found with ID: " + userId));
+        // 1. Retrieve the user by ID
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
-        if (!"MANAGER".equalsIgnoreCase(manager.getRole().getName())) {
-            throw new BusinessException("Only managers can be approved for company creation.");
+        // 2. Check if the user is already associated with a company
+        if (user.getCompany() != null) {
+            throw new BusinessException("User is already associated with a company.");
         }
 
-        if (manager.getCompany() != null) {
-            throw new BusinessException("This manager already has a company.");
+        // 3. Check if the user has a pending company name
+        if (user.getPendingCompanyName() == null || user.getPendingCompanyName().isBlank()) {
+            throw new BusinessException("User has no pending company name.");
         }
 
-        if (manager.getPendingCompanyName() == null || manager.getPendingCompanyName().isBlank()) {
-            throw new BusinessException("No pending company name found for this manager.");
-        }
+        // 4. Prepare a DTO to create a new company
+        CompanyRequestDTO companyRequest = new CompanyRequestDTO();
+        companyRequest.setCompanyName(user.getPendingCompanyName());
+        companyRequest.setEmployeeLimitLevel(EmployeeLimitLevel.SMALL); // or dynamically determine
+        companyRequest.setEmployeeNumberLimit(10);                         // default limit
+        companyRequest.setSubscriptionPlan(SubscriptionPlan.FREE);       // default plan
 
-        // Create new Company entity
-        Company company = new Company();
-        company.setCompanyName(manager.getPendingCompanyName());
-        company.setCompanyEmail(manager.getEmail());
-        company.setCompanyManager(manager);
-        company.setUpdateAt(System.currentTimeMillis());
+        // 5. Convert the DTO to a Company entity using the mapper
+        Company newCompany = companyMapper.toEntity(companyRequest, user);
 
-        Company savedCompany = companyRepository.save(company);
+        // 6. Set the company email if required
+        newCompany.setCompanyEmail(user.getEmail());
 
-        // Assign company to manager and activate account
-        manager.setCompany(savedCompany);
-        manager.setPendingCompanyName(null);
-        manager.setEnabled(true);
-        manager.setEmailVerified(true);
-        userRepository.save(manager);
+        // 7. Save the new company
+        Company savedCompany = companyRepository.save(newCompany);
 
+        // 8. Update the user to link the new company and clear the pending company name
+        user.setCompany(savedCompany);
+        user.setPendingCompanyName(null);
+        userRepository.save(user);
+
+        // 9. Return the saved company as a response DTO
         return companyMapper.toDTO(savedCompany);
     }
 
     @Override
     public List<UserResponseDTO> getPendingCompanyManagers() {
-        List<User> pendingManagers = userRepository.findByPendingCompanyNameIsNotNullAndEnabledFalse();
-        return pendingManagers.stream()
+        return userRepository.findByRoleNameAndPendingCompanyNameNotNull("MANAGER")
+                .stream()
                 .map(userMapper::toDTO)
                 .collect(Collectors.toList());
     }

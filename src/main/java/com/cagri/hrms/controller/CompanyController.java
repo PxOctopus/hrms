@@ -2,9 +2,11 @@ package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.company.CompanyRequestDTO;
 import com.cagri.hrms.dto.response.company.CompanyResponseDTO;
+import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.service.CompanyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +26,11 @@ public class CompanyController {
     @GetMapping("/{id}")
     public ResponseEntity<CompanyResponseDTO> getCompanyById(@PathVariable Long id) {
         return ResponseEntity.ok(companyService.getCompanyById(id));
+    }
+
+    @GetMapping("/pending-managers")
+    public ResponseEntity<List<UserResponseDTO>> getPendingManagers() {
+        return ResponseEntity.ok(companyService.getPendingCompanyManagers());
     }
 
     @GetMapping

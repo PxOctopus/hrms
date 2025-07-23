@@ -57,6 +57,7 @@ public class DataSeeder {
                         .role(adminRole)
                         .emailVerified(true)
                         .isActive(true)
+                        .enabled(true)
                         .createdAt(LocalDate.now())
                         .build();
 
