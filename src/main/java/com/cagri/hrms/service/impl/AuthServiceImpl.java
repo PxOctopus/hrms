@@ -122,11 +122,20 @@ public class AuthServiceImpl implements AuthService {
             employeeRepository.save(employee);
         }
 
-        // 10. Send email verification link
-        mailService.sendVerificationEmail(
-                request.getEmail(),
-                user.getVerificationToken()
-        );
+        // 10. Send email verification link (customized for MANAGER)
+        if ("MANAGER".equalsIgnoreCase(roleName)) {
+            mailService.sendCompanyVerificationEmail(
+                    request.getCompanyEmail(),
+                    request.getFullName(),
+                    request.getCompanyName(),
+                    user.getVerificationToken()
+            );
+        } else {
+            mailService.sendVerificationEmail(
+                    request.getEmail(),
+                    user.getVerificationToken()
+            );
+        }
 
         // 11. Generate JWT token and return response
         String token = jwtService.generateToken(user);
