@@ -3,6 +3,7 @@ package com.cagri.hrms.service;
 import com.cagri.hrms.dto.request.user.ChangeEmailRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangePasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.UserRequestDTO;
+import com.cagri.hrms.dto.response.user.PendingManagerDTO;
 import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.entity.core.User;
 import jakarta.validation.constraints.NotNull;
@@ -25,5 +26,8 @@ public interface UserService {
 
     User getUserByEmail(String email);
 
+    List<PendingManagerDTO> getPendingManagers();
+
+    void rejectPendingManager(Long userId);
 
 }

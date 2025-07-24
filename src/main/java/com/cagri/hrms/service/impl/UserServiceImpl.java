@@ -3,6 +3,7 @@ package com.cagri.hrms.service.impl;
 import com.cagri.hrms.dto.request.user.ChangeEmailRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangePasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.UserRequestDTO;
+import com.cagri.hrms.dto.response.user.PendingManagerDTO;
 import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.entity.core.Role;
 import com.cagri.hrms.entity.core.User;
@@ -12,6 +13,7 @@ import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.MailService;
 import com.cagri.hrms.service.UserService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -156,5 +158,27 @@ public class UserServiceImpl implements UserService {
 
         return user.getCompany().getId();
     }
+
+    @Override
+    public List<PendingManagerDTO> getPendingManagers() {
+        return userRepository.findByRoleNameAndPendingCompanyNameNotNull("MANAGER")
+                .stream()
+                .map(user -> new PendingManagerDTO(
+                        user.getId(),
+                        user.getFullName(),
+                        user.getEmail(),
+                        user.getPendingCompanyName()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void rejectPendingManager(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
+        mailService.sendRejectionEmail(user.getEmail(), user.getPendingCompanyName()); // optional
+        userRepository.delete(user);
+    }
+
+
 }
 

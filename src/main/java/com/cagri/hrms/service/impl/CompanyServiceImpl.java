@@ -12,6 +12,7 @@ import com.cagri.hrms.mapper.UserMapper;
 import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.CompanyService;
+import com.cagri.hrms.service.MailService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -33,6 +34,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final CompanyMapper companyMapper;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final MailService mailService;
 
 
     @Override
@@ -104,6 +106,9 @@ public class CompanyServiceImpl implements CompanyService {
         user.setCompany(savedCompany);
         user.setPendingCompanyName(null);
         userRepository.save(user);
+
+        // 8.5 Send confirmation email to the manager
+        mailService.sendApprovalEmail(user.getEmail(), savedCompany.getCompanyName());
 
         // 9. Return the saved company as a response DTO
         return companyMapper.toDTO(savedCompany);

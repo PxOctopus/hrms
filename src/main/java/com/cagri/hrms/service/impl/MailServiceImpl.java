@@ -97,4 +97,55 @@ public class MailServiceImpl implements MailService {
             throw new RuntimeException("Failed to send reset password email", e);
         }
     }
+
+    @Async
+    @Override
+    public void sendRejectionEmail(String to, String companyName) {
+        String subject = "Company Registration Rejected";
+        String body = """
+        <p>Dear User,</p>
+        <p>We regret to inform you that your registration request for the company <strong>%s</strong> has been rejected by the administrator.</p>
+        <p>If you believe this was a mistake or have any questions, please contact support.</p>
+        <p>Thank you for your understanding.</p>
+        """.formatted(companyName);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, true);
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new IllegalStateException("Failed to send rejection email", e);
+        }
+    }
+
+    @Async
+    @Override
+    public void sendApprovalEmail(String to, String companyName) {
+        String subject = "Company Registration Approved";
+        String body = """
+        <p>Dear User,</p>
+        <p>Your registration request for the company <strong>%s</strong> has been approved.</p>
+        <p>You can now log in and start using the platform.</p>
+        <p><a href="http://localhost:3000/login">Go to Login</a></p>
+        <p>Thank you for joining us.</p>
+        """.formatted(companyName);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, true);
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new IllegalStateException("Failed to send approval email", e);
+        }
+    }
 }
