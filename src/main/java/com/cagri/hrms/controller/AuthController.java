@@ -6,7 +6,11 @@ import com.cagri.hrms.dto.request.general.ForgotPasswordRequestDTO;
 import com.cagri.hrms.dto.request.general.ResetPasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.VerifyEmailRequestDTO;
 import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
+import com.cagri.hrms.dto.response.auth.VerifyEmailResponseDTO;
 import com.cagri.hrms.dto.response.general.MessageResponseDTO;
+import com.cagri.hrms.dto.response.user.UserResponseDTO;
+import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.mapper.UserMapper;
 import com.cagri.hrms.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserMapper userMapper;
 
     // POST /api/auth/register
     @PostMapping("/register")
@@ -38,9 +43,16 @@ public class AuthController {
     }
 
     @PostMapping("/verify-email")
-    public ResponseEntity<MessageResponseDTO> verifyEmail(@Valid @RequestBody VerifyEmailRequestDTO request) {
-        authService.verifyEmail(request);
-        return ResponseEntity.ok(new MessageResponseDTO("Email verified successfully."));
+    public ResponseEntity<VerifyEmailResponseDTO> verifyEmail(@Valid @RequestBody VerifyEmailRequestDTO request) {
+        User user = authService.verifyEmail(request);
+        UserResponseDTO userDTO = userMapper.toDTO(user);
+
+        VerifyEmailResponseDTO response = new VerifyEmailResponseDTO(
+                "Email verified successfully.",
+                userDTO
+        );
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/forgot-password")

@@ -6,6 +6,7 @@ import com.cagri.hrms.dto.request.general.ForgotPasswordRequestDTO;
 import com.cagri.hrms.dto.request.general.ResetPasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.VerifyEmailRequestDTO;
 import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
+import com.cagri.hrms.entity.core.User;
 import jakarta.validation.Valid;
 
 public interface AuthService {
@@ -18,5 +19,5 @@ public interface AuthService {
 
     void resetPassword(ResetPasswordRequestDTO request);
 
-    void verifyEmail(@Valid VerifyEmailRequestDTO request);
+    User verifyEmail(VerifyEmailRequestDTO request);
 }
