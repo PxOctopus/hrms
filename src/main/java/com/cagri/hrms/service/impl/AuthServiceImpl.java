@@ -85,7 +85,7 @@ public class AuthServiceImpl implements AuthService {
             String expectedDomain = request.getCompanyEmail().split("@")[1];
             String userDomain = request.getEmail().split("@")[1];
             if (!userDomain.equalsIgnoreCase(expectedDomain)) {
-                throw new BusinessException("Employee email must match company domain: @" + expectedDomain);
+                throw new BusinessException("No matching company domain found for your email. Please contact your company manager to complete registration.");
             }
 
             // 5.2 Fetch the existing company by name and email
