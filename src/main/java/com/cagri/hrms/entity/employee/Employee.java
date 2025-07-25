@@ -71,6 +71,9 @@ public class Employee {
     @Column(name = "is_active")
     private boolean isActive;
 
+    @Column(name = "is_pending_approval_by_manager")
+    private Boolean isPendingApprovalByManager = true;
+
     // AUDIT
     @Builder.Default
     @Column(name = "created_at")

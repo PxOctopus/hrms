@@ -23,4 +23,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findByUser(User user);
 
+    List<Employee> findByIsPendingApprovalByManagerTrue();
+
 }

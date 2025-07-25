@@ -117,9 +117,32 @@ public class AuthServiceImpl implements AuthService {
             employee.setUser(user);
             employee.setCompany(company);
             employee.setHireDate(LocalDate.now());
-            employee.setActive(true);
             employee.setCreatedAt(System.currentTimeMillis());
+
+            // Set employee to inactive and waiting for manager approval
+            employee.setPendingApprovalByManager(true);
+            employee.setActive(false);
+
             employeeRepository.save(employee);
+
+            // Send notification to the employee
+            mailService.sendEmployeePendingApprovalNotification(
+                    user.getEmail(),
+                    company.getCompanyName()
+            );
+
+            // Find the company manager
+            User manager = userRepository.findByCompanyIdAndRoleName(company.getId(), "MANAGER")
+                    .orElse(null);
+
+            if (manager != null) {
+                // Send notification to the manager about pending employee
+                mailService.sendPendingEmployeeNotificationToManager(
+                        manager.getEmail(),
+                        user.getFullName(),
+                        company.getCompanyName()
+                );
+            }
         }
 
         // 10. Send email verification link (customized for MANAGER)

@@ -28,4 +28,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByRoleNameAndPendingCompanyNameNotNull(String roleName);
 
+    Optional<User> findByCompanyIdAndRoleName(Long companyId, String roleName);
 }

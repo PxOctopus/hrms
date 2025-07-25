@@ -27,4 +27,5 @@ public class EmployeeResponseDTO {
     private boolean isActive;
     private Long createdAt;
     private Long updatedAt;
+    private boolean isPendingApprovalByManager;
 }

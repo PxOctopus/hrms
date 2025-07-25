@@ -32,4 +32,8 @@ public class EmployeeCreateRequestDTO {
 
     @Min(value = 0, message = "Annual leave must be 0 or more")
     private Integer annualLeave;
+
+    // Manager can decide whether the employee needs approval
+    @NotNull(message = "Approval status must be specified")
+    private Boolean isPendingApprovalByManager;
 }

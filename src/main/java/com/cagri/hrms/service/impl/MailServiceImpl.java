@@ -148,4 +148,34 @@ public class MailServiceImpl implements MailService {
             throw new IllegalStateException("Failed to send approval email", e);
         }
     }
+    @Async
+    @Override
+    public void sendEmployeePendingApprovalNotification(String employeeEmail, String companyName) {
+        String subject = "Your registration is pending approval";
+        String body = "Your registration to the company '" + companyName + "' has been received and is pending approval by your manager.";
+        sendEmail(employeeEmail, subject, body);
+    }
+
+    @Async
+    @Override
+    public void sendPendingEmployeeNotificationToManager(String managerEmail, String employeeName, String companyName) {
+        String subject = "New employee registration pending approval";
+        String body = "Employee '" + employeeName + "' has registered to the company '" + companyName + "' and is waiting for your approval.";
+        sendEmail(managerEmail, subject, body);
+    }
+
+    public void sendEmail(String to, String subject, String body) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, true);
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new IllegalStateException("Failed to send email to: " + to, e);
+        }
+    }
 }

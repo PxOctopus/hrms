@@ -13,6 +13,7 @@ public interface EmployeeMapper {
     @Mapping(source = "user.fullName", target = "fullName")
     @Mapping(source = "user.email", target = "email")
     @Mapping(source = "company.companyName", target = "companyName")
+    @Mapping(source = "isPendingApprovalByManager", target = "isPendingApprovalByManager")
     EmployeeResponseDTO toDTO(Employee employee);
 
     @Mapping(target = "birthDate", source = "dto.birthDate")
@@ -29,6 +30,7 @@ public interface EmployeeMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "company", ignore = true)
+    @Mapping(target = "isPendingApprovalByManager", source = "dto.isPendingApprovalByManager")
     Employee toEntity(EmployeeCreateRequestDTO dto, @Context User user, @Context Company company);
 
     @AfterMapping
@@ -40,5 +42,6 @@ public interface EmployeeMapper {
     }
 
     @Mapping(target = "updatedAt", expression = "java(System.currentTimeMillis())")
+    @Mapping(target = "isPendingApprovalByManager", source = "dto.isPendingApprovalByManager")
     void updateFromDto(EmployeeCreateRequestDTO dto, @MappingTarget Employee employee);
 }

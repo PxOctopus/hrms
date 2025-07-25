@@ -17,4 +17,10 @@ public interface EmployeeService {
     EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO dto, User authenticatedUser);
 
     EmployeeResponseDTO updateEmployee(Long id, EmployeeCreateRequestDTO dto, User user);
+
+    List<EmployeeResponseDTO> getPendingEmployeesForManager();
+
+    void approveEmployee(Long employeeId);
+
+    void rejectEmployee(Long employeeId);
 }
