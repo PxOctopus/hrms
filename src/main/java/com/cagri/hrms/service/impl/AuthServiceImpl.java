@@ -120,7 +120,7 @@ public class AuthServiceImpl implements AuthService {
             employee.setCreatedAt(System.currentTimeMillis());
 
             // Set employee to inactive and waiting for manager approval
-            employee.setPendingApprovalByManager(true);
+            employee.setIsPendingApprovalByManager(true);
             employee.setActive(false);
 
             employeeRepository.save(employee);
