@@ -144,4 +144,15 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .map(employeeMapper::toDTO)
                 .toList();
     }
+
+    @Override
+    public void toggleActiveStatus(Long id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
+
+        employee.setActive(!employee.isActive()); // flip the current state
+        employee.setUpdatedAt(System.currentTimeMillis());
+
+        employeeRepository.save(employee);
+    }
 }

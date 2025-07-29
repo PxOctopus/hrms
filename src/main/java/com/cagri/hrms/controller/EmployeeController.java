@@ -2,6 +2,7 @@ package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
+import com.cagri.hrms.dto.response.general.MessageResponseDTO;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.UserService;
@@ -61,5 +62,12 @@ public class EmployeeController {
     public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
         employeeService.deleteEmployee(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('MANAGER')")
+    @PatchMapping("/{id}/toggle-active")
+    public ResponseEntity<MessageResponseDTO> toggleEmployeeActiveStatus(@PathVariable Long id) {
+        employeeService.toggleActiveStatus(id);
+        return ResponseEntity.ok(new MessageResponseDTO("Employee status updated."));
     }
 }

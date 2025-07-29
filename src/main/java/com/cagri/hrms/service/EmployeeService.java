@@ -23,4 +23,6 @@ public interface EmployeeService {
     void approveEmployee(Long employeeId);
 
     void rejectEmployee(Long employeeId);
+
+    void toggleActiveStatus(Long id);
 }
