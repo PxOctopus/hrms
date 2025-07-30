@@ -42,8 +42,11 @@ public class EmployeeController {
 
     @PreAuthorize("hasRole('MANAGER')")
     @GetMapping
-    public ResponseEntity<List<EmployeeResponseDTO>> getAllEmployees() {
-        return ResponseEntity.ok(employeeService.getAllEmployees());
+    public ResponseEntity<List<EmployeeResponseDTO>> getAllEmployees(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User user = userService.getUserByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(employeeService.getAllEmployees(user));
     }
 
     @PreAuthorize("hasRole('MANAGER')")

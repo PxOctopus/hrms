@@ -51,8 +51,9 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
-    public List<EmployeeResponseDTO> getAllEmployees() {
-        return employeeRepository.findAll()
+    public List<EmployeeResponseDTO> getAllEmployees(User manager) {
+        Long companyId = manager.getCompany().getId();
+        return employeeRepository.findAllByCompanyId(companyId)
                 .stream()
                 .map(employeeMapper::toDTO)
                 .toList();
