@@ -1,7 +1,9 @@
 package com.cagri.hrms.mapper;
 
 import com.cagri.hrms.dto.request.user.UserRequestDTO;
+import com.cagri.hrms.dto.response.company.CompanyResponseDTO;
 import com.cagri.hrms.dto.response.user.UserResponseDTO;
+import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.core.Role;
 import com.cagri.hrms.entity.core.User;
 import org.mapstruct.*;
@@ -15,7 +17,11 @@ public interface UserMapper {
 //   which is used to show which company the manager has requested to create (admin view).
     @Mapping(source = "role.name", target = "role")
     @Mapping(source = "pendingCompanyName", target = "pendingCompanyName")
+    @Mapping(source = "company", target = "company")
     UserResponseDTO toDTO(User user);
+
+    // Company entity to DTO mapping
+    CompanyResponseDTO toCompanyResponseDTO(Company company);
 
     // Converts UserRequestDTO to User entity using Role from @Context
     User toEntity(UserRequestDTO dto, @Context Role role);
