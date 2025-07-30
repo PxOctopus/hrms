@@ -138,8 +138,11 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
-    public List<EmployeeResponseDTO> getPendingEmployeesForManager() {
-        List<Employee> pendingEmployees = employeeRepository.findByIsPendingApprovalByManagerTrue();
+    public List<EmployeeResponseDTO> getPendingEmployeesForManager(User manager) {
+        Long companyId = manager.getCompany().getId();
+        List<Employee> pendingEmployees =
+                employeeRepository.findByCompanyIdAndIsPendingApprovalByManagerTrue(companyId);
+
         return pendingEmployees.stream()
                 .map(employeeMapper::toDTO)
                 .toList();

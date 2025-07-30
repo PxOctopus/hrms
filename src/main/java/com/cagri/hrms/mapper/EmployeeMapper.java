@@ -39,6 +39,7 @@ public interface EmployeeMapper {
                                       @Context Company company) {
         employee.setUser(user);
         employee.setCompany(company);
+        employee.setEmail(user.getEmail());
     }
 
     @Mapping(target = "updatedAt", expression = "java(System.currentTimeMillis())")

@@ -18,11 +18,11 @@ public interface EmployeeService {
 
     EmployeeResponseDTO updateEmployee(Long id, EmployeeCreateRequestDTO dto, User user);
 
-    List<EmployeeResponseDTO> getPendingEmployeesForManager();
-
     void approveEmployee(Long employeeId);
 
     void rejectEmployee(Long employeeId);
 
     void toggleActiveStatus(Long id);
+
+    List<EmployeeResponseDTO> getPendingEmployeesForManager(User manager);
 }

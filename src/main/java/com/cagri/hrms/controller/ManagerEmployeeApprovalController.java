@@ -2,9 +2,13 @@ package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.dto.response.general.MessageResponseDTO;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.service.EmployeeService;
+import com.cagri.hrms.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,11 +19,15 @@ import java.util.List;
 public class ManagerEmployeeApprovalController {
 
     private final EmployeeService employeeService;
+    private final UserService userService;
 
     // GET /api/manager/employees/pending
     @GetMapping("/pending")
-    public ResponseEntity<List<EmployeeResponseDTO>> getPendingEmployees() {
-        List<EmployeeResponseDTO> pendingEmployees = employeeService.getPendingEmployeesForManager();
+    public ResponseEntity<List<EmployeeResponseDTO>> getPendingEmployees(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User manager = userService.getUserByEmail(userDetails.getUsername());
+        List<EmployeeResponseDTO> pendingEmployees = employeeService.getPendingEmployeesForManager(manager);
         return ResponseEntity.ok(pendingEmployees);
     }
 

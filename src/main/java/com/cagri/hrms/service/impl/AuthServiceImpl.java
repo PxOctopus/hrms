@@ -77,22 +77,21 @@ public class AuthServiceImpl implements AuthService {
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new BusinessException("Role not found: " + roleName));
 
-        // 5. Company will be determined if the user is an employee
+        // 5. The Company will be determined if the user is an employee
         Company company = null;
 
         if ("EMPLOYEE".equalsIgnoreCase(roleName)) {
-            // 5.1 Check that employee email domain matches company domain
-            String expectedDomain = request.getCompanyEmail().split("@")[1];
-            String userDomain = request.getEmail().split("@")[1];
-            if (!userDomain.equalsIgnoreCase(expectedDomain)) {
-                throw new BusinessException("No matching company domain found for your email. Please contact your company manager to complete registration.");
-            }
+            // 5.1 Extract domain from employee email
+            String userDomain = "@" + request.getEmail().trim().toLowerCase().split("@")[1];
 
-            // 5.2 Fetch the existing company by name and email
-            company = companyRepository.findByCompanyNameAndCompanyEmail(
-                    request.getCompanyName(),
-                    request.getCompanyEmail()
-            ).orElseThrow(() -> new BusinessException("Company not found with provided name and email"));
+            // 5.2 Trim and normalize company name
+            String companyName = request.getCompanyName().trim();
+
+            // 5.3 Fetch company by name and email domain (ends with)
+            company = companyRepository
+                    .findByCompanyNameIgnoreCaseAndCompanyEmailEndingWithIgnoreCase(companyName, userDomain)
+                    .orElseThrow(() -> new BusinessException("No company found matching the provided name and email domain."));
+
         }
 
         // 6. Map the request to a User entity
@@ -118,6 +117,8 @@ public class AuthServiceImpl implements AuthService {
             employee.setCompany(company);
             employee.setHireDate(LocalDate.now());
             employee.setCreatedAt(System.currentTimeMillis());
+
+            employee.setEmail(user.getEmail());
 
             // Set employee to inactive and waiting for manager approval
             employee.setIsPendingApprovalByManager(true);
