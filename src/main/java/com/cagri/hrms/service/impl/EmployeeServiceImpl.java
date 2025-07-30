@@ -6,6 +6,7 @@ import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.employee.Employee;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.mapper.EmployeeMapper;
+import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.MailService;
@@ -22,6 +23,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final EmployeeMapper employeeMapper;
     private final MailService mailService;
+    private final CompanyRepository companyRepository;
 
     @Override
     public EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {
@@ -113,6 +115,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setUpdatedAt(System.currentTimeMillis());
 
         employeeRepository.save(employee);
+
+        // Increase the number of employees in the company
+        Company company = employee.getCompany();
+        company.setNumberOfEmployees(company.getNumberOfEmployees() + 1);
+        companyRepository.save(company);
 
         // Send approval email to employee
         String email = employee.getUser().getEmail();

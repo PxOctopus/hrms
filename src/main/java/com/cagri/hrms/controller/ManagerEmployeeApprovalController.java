@@ -7,6 +7,7 @@ import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/manager/employees")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('MANAGER')")
 public class ManagerEmployeeApprovalController {
 
     private final EmployeeService employeeService;
