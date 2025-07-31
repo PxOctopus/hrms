@@ -15,4 +15,5 @@ public class UserResponseDTO {
     private String role;
     private String pendingCompanyName;
     private CompanyResponseDTO company;
+    private boolean companyApproved;
 }

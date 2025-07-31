@@ -18,6 +18,7 @@ public interface UserMapper {
     @Mapping(source = "role.name", target = "role")
     @Mapping(source = "pendingCompanyName", target = "pendingCompanyName")
     @Mapping(source = "company", target = "company")
+    @Mapping(target = "companyApproved", expression = "java(user.getCompany() != null)")
     UserResponseDTO toDTO(User user);
 
     // Company entity to DTO mapping
