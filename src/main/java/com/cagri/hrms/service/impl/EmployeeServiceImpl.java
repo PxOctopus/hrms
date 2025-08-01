@@ -8,6 +8,7 @@ import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.mapper.EmployeeMapper;
 import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
+import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.MailService;
 import jakarta.persistence.EntityNotFoundException;
@@ -24,6 +25,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeMapper employeeMapper;
     private final MailService mailService;
     private final CompanyRepository companyRepository;
+    private final UserRepository userRepository; // Added for updating user's enabled field
 
     @Override
     public EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {
@@ -32,6 +34,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new EntityNotFoundException("Authenticated user is not associated with any company.");
         }
 
+        // Map DTO to Employee entity using mapper
         Employee employee = employeeMapper.toEntity(requestDTO, authenticatedUser, company);
 
         // If manager didn't specify approval status, default to false (already approved)
@@ -39,11 +42,11 @@ public class EmployeeServiceImpl implements EmployeeService {
             employee.setIsPendingApprovalByManager(false);
         }
 
-        // Default: set isActive based on approval status
+        // Set isActive based on approval status
         if (Boolean.TRUE.equals(employee.getIsPendingApprovalByManager())) {
-            employee.setActive(false); // Awaiting approval
+            employee.setActive(false); // Employee is waiting for manager approval
         } else {
-            employee.setActive(true);  // Approved immediately
+            employee.setActive(true);  // Employee is immediately active
         }
 
         employeeRepository.save(employee);
@@ -53,6 +56,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public List<EmployeeResponseDTO> getAllEmployees(User manager) {
         Long companyId = manager.getCompany().getId();
+        // Fetch all employees in the manager's company and map to DTOs
         return employeeRepository.findAllByCompanyId(companyId)
                 .stream()
                 .map(employeeMapper::toDTO)
@@ -63,7 +67,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     public EmployeeResponseDTO getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
-
+        // Map Employee entity to DTO
         return employeeMapper.toDTO(employee);
     }
 
@@ -77,17 +81,19 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new EntityNotFoundException("Authenticated user is not associated with any company.");
         }
 
+        // Update employee fields from DTO
         employeeMapper.updateFromDto(requestDTO, employee);
 
         employee.setUser(authenticatedUser);
         employee.setCompany(company);
         employee.setUpdatedAt(System.currentTimeMillis());
 
-        // apply the same logic here too
+        // Ensure isPendingApprovalByManager is not null
         if (employee.getIsPendingApprovalByManager() == null) {
             employee.setIsPendingApprovalByManager(false);
         }
 
+        // Update isActive based on approval status
         if (Boolean.TRUE.equals(employee.getIsPendingApprovalByManager())) {
             employee.setActive(false);
         } else {
@@ -102,7 +108,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     public void deleteEmployee(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
-
+        // Remove employee from the database
         employeeRepository.delete(employee);
     }
 
@@ -111,20 +117,26 @@ public class EmployeeServiceImpl implements EmployeeService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + employeeId));
 
-        employee.setIsPendingApprovalByManager(false); // No longer awaiting confirmation
-        employee.setActive(true);                    // became active
+        // Set employee as approved and active
+        employee.setIsPendingApprovalByManager(false);
+        employee.setActive(true);
         employee.setUpdatedAt(System.currentTimeMillis());
+
+        // Enable associated user so the employee can log in
+        User user = employee.getUser();
+        user.setEnabled(true); // <-- This is required for login!
+        userRepository.save(user);
 
         employeeRepository.save(employee);
 
-        // Increase the number of employees in the company
+        // Update company's employee count
         Company company = employee.getCompany();
         company.setNumberOfEmployees(company.getNumberOfEmployees() + 1);
         companyRepository.save(company);
 
-        // Send approval email to employee
-        String email = employee.getUser().getEmail();
-        String companyName = employee.getCompany().getCompanyName();
+        // Send approval notification to the employee
+        String email = user.getEmail();
+        String companyName = company.getCompanyName();
         mailService.sendApprovalEmail(email, companyName);
     }
 
@@ -133,14 +145,20 @@ public class EmployeeServiceImpl implements EmployeeService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + employeeId));
 
+        // Mark employee as rejected and inactive
         employee.setIsPendingApprovalByManager(false);
-        employee.setActive(false); // left inactive because it is rejected
+        employee.setActive(false); // Employee cannot work in the company
         employee.setUpdatedAt(System.currentTimeMillis());
+
+        // Also disable user's login here if desired
+        User user = employee.getUser();
+        user.setEnabled(false);
+        userRepository.save(user);
 
         employeeRepository.save(employee);
 
-        // Send rejection email to employee (optional)
-        String email = employee.getUser().getEmail();
+        // Send rejection notification to the employee
+        String email = user.getEmail();
         String companyName = employee.getCompany().getCompanyName();
         mailService.sendRejectionEmail(email, companyName);
     }
@@ -148,6 +166,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public List<EmployeeResponseDTO> getPendingEmployeesForManager(User manager) {
         Long companyId = manager.getCompany().getId();
+        // Retrieve employees who are waiting for manager approval
         List<Employee> pendingEmployees =
                 employeeRepository.findByCompanyIdAndIsPendingApprovalByManagerTrue(companyId);
 
@@ -161,7 +180,8 @@ public class EmployeeServiceImpl implements EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
 
-        employee.setActive(!employee.isActive()); // flip the current state
+        // Toggle the employee's active status
+        employee.setActive(!employee.isActive());
         employee.setUpdatedAt(System.currentTimeMillis());
 
         employeeRepository.save(employee);
