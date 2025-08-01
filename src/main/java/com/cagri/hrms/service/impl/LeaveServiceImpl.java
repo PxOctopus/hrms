@@ -40,30 +40,40 @@ public class LeaveServiceImpl implements LeaveService {
     public void requestLeave(LeaveRequestDTO dto) {
         Leave leave = leaveMapper.toEntity(dto);
 
-        // Fetch employee and leave type from database
-        Employee employee = employeeRepository.findById(dto.getEmployeeId())
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+        // Get current logged-in user
+        User currentUser = SecurityUtil.getCurrentUser();
+        Employee employee;
+
+        // Determine for whom the leave is being created
+        if (dto.getEmployeeId() == null) {
+            // No employeeId sent: user is creating leave for themselves
+            employee = employeeRepository.findByUser(currentUser)
+                    .orElseThrow(() -> new RuntimeException("Employee not found"));
+        } else {
+            // Manager may create leave for another employee
+            employee = employeeRepository.findById(dto.getEmployeeId())
+                    .orElseThrow(() -> new RuntimeException("Employee not found"));
+            boolean isSelfRequest = employee.getUser().getId().equals(currentUser.getId());
+            // Security: Only managers can create leaves for others
+            if (!isSelfRequest && !currentUser.hasRole("MANAGER")) {
+                throw new RuntimeException("Only managers can create leave for others!");
+            }
+        }
+
+        // Leave type must be selected (leaveDefinitionId cannot be null or <=0)
+        if (dto.getLeaveDefinitionId() == null || dto.getLeaveDefinitionId() <= 0) {
+            throw new RuntimeException("Leave type (leaveDefinitionId) must be selected.");
+        }
         LeaveDefinition leaveDefinition = leaveDefinitionRepository.findById(dto.getLeaveDefinitionId())
                 .orElseThrow(() -> new RuntimeException("Leave definition not found"));
 
-        // Get current logged-in user
-        User currentUser = SecurityUtil.getCurrentUser();
-
-        // Check if the request is for the current user or for another employee
+        // Status and decision logic
         boolean isSelfRequest = employee.getUser().getId().equals(currentUser.getId());
-
-        // Security: Only managers can create leaves for other employees
-        if (!isSelfRequest && !currentUser.hasRole("MANAGER")) {
-            throw new RuntimeException("Only managers can create leave for others!");
-            // Optionally, you can use: throw new AccessDeniedException(...)
-        }
-
-        // Set leave status and decision date depending on who is making the request
         if (isSelfRequest) {
-            // Employee requests their own leave -> status is PENDING
+            // Employee requests their own leave → status is PENDING
             leave.setStatus(LeaveStatus.PENDING);
         } else {
-            // Manager creates leave for an employee -> status is APPROVED
+            // Manager creates leave for another employee → status is APPROVED
             leave.setStatus(LeaveStatus.APPROVED);
             leave.setDecisionDate(LocalDate.now());
             leave.setManagerNote("Created by manager");
