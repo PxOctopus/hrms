@@ -6,6 +6,8 @@ import com.cagri.hrms.entity.employee.Leave;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.List;
+
 @Mapper(componentModel = "spring")
 public interface LeaveMapper {
 
@@ -23,4 +25,6 @@ public interface LeaveMapper {
     @Mapping(source = "leaveDefinition.name", target = "leaveDefinitionName")
     @Mapping(source = "createdBy.fullName", target = "managerFullName")
     LeaveResponseDTO toDto(Leave leave);
+
+    List<LeaveResponseDTO> toResponseDTOList(List<Leave> leaves);
 }
