@@ -1,7 +1,9 @@
 package com.cagri.hrms.config;
 
+import com.cagri.hrms.entity.core.LeaveDefinition;
 import com.cagri.hrms.entity.core.Role;
 import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.repository.LeaveDefinitionRepository;
 import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,12 +14,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
 public class DataSeeder {
 
     private final PasswordEncoder passwordEncoder;
+    private final LeaveDefinitionRepository leaveDefinitionRepository; // Added for seeding leave definitions
+
 
     @Value("${admin.user.email}")
     private String adminEmail;
@@ -26,7 +31,9 @@ public class DataSeeder {
     private String adminPassword;
 
     @Bean
-    public CommandLineRunner initDatabase(UserRepository userRepository, RoleRepository roleRepository) {
+    public CommandLineRunner initDatabase(UserRepository userRepository,
+                                          RoleRepository roleRepository,
+                                          LeaveDefinitionRepository leaveDefinitionRepository) {
         return args -> {
             // Create ADMIN role if it doesn't exist
             if (!roleRepository.existsByName("ADMIN")) {
@@ -62,6 +69,24 @@ public class DataSeeder {
                         .build();
 
                 userRepository.save(admin);
+            }
+
+            // Create default leave definitions if none exist
+            if (leaveDefinitionRepository.count() == 0) {
+                List<LeaveDefinition> definitions = List.of(
+                        LeaveDefinition.builder()
+                                .name("Annual Leave")
+                                .maxDays(20)
+                                .active(true)
+                                .build(),
+                        LeaveDefinition.builder()
+                                .name("Sick Leave")
+                                .maxDays(10)
+                                .active(true)
+                                .build()
+                );
+
+                leaveDefinitionRepository.saveAll(definitions);
             }
         };
     }
