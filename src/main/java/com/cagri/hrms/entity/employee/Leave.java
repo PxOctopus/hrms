@@ -1,6 +1,7 @@
 package com.cagri.hrms.entity.employee;
 
 import com.cagri.hrms.entity.core.LeaveDefinition;
+import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.enums.LeaveStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -41,4 +42,12 @@ public class Leave {
     @ManyToOne
     @JoinColumn(name = "leave_definition_id", nullable = false)
     private LeaveDefinition leaveDefinition;  // Type of leave (Annual, Sick, etc.)
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by", nullable = false)
+    private User createdBy;
+
+    @ManyToOne
+    @JoinColumn(name = "manager_id")
+    private User manager; // Manager assigned to review this leave
 }

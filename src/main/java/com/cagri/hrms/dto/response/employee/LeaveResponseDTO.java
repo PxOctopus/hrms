@@ -20,4 +20,6 @@ public class LeaveResponseDTO {
     private LocalDate requestDate;     // Date when the leave was requested
     private LocalDate decisionDate;    // Date of manager’s decision
     private String managerNote;        // Optional note provided by the manager
+
+    private String managerFullName;
 }

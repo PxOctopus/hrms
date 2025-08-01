@@ -25,9 +25,9 @@ public class LeaveDefinitionController {
         return ResponseEntity.ok().build();
     }
 
-    // Only MANAGER can view all leave definitions
+    // MANAGER and EMPLOYEE can view all leave definitions
     @GetMapping
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER')")
     public ResponseEntity<List<LeaveDefinitionResponseDTO>> getAllLeaveDefinitions() {
         return ResponseEntity.ok(leaveDefinitionService.getAllLeaveDefinitions());
     }

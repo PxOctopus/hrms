@@ -30,4 +30,6 @@ public interface UserService {
 
     void rejectPendingManager(Long userId);
 
+    User getCurrentUser();
+
 }

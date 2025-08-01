@@ -37,6 +37,18 @@ public class LeaveController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/assigned-by-me")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<List<LeaveResponseDTO>> getLeavesAssignedByManager() {
+        return ResponseEntity.ok(leaveService.getLeavesAssignedByManager());
+    }
+
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<List<LeaveResponseDTO>> getPendingLeaves() {
+        return ResponseEntity.ok(leaveService.getLeavesWaitingForMyApproval());
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<List<LeaveResponseDTO>> getAllLeaves() {

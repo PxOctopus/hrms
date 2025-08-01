@@ -21,5 +21,6 @@ public interface LeaveMapper {
     @Mapping(source = "employee.id", target = "employeeId")
     @Mapping(source = "employee.user.fullName", target = "employeeFullName")
     @Mapping(source = "leaveDefinition.name", target = "leaveDefinitionName")
+    @Mapping(source = "createdBy.fullName", target = "managerFullName")
     LeaveResponseDTO toDto(Leave leave);
 }

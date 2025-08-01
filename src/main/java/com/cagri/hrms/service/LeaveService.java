@@ -31,4 +31,6 @@ public interface LeaveService {
 
     // Retrieve all rejected leave requests
     List<LeaveResponseDTO> getRejectedLeaves();
+
+    List<LeaveResponseDTO> getLeavesAssignedByManager();
 }

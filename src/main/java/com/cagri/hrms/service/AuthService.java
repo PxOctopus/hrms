@@ -20,4 +20,7 @@ public interface AuthService {
     void resetPassword(ResetPasswordRequestDTO request);
 
     User verifyEmail(VerifyEmailRequestDTO request);
+
+    User getCurrentUser();
+
 }

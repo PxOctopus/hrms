@@ -21,4 +21,8 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     // Find leaves by type (if needed for reports, limits, etc.)
     List<Leave> findByLeaveDefinition(LeaveDefinition definition);
+
+    List<Leave> findAllByCreatedBy_Id(Long managerId);
+
+    List<Leave> findByStatusAndManager_Id(LeaveStatus status, Long managerId);
 }

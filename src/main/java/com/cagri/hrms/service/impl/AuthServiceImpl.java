@@ -22,9 +22,11 @@ import com.cagri.hrms.service.JwtService;
 import com.cagri.hrms.service.MailService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -231,5 +233,21 @@ public class AuthServiceImpl implements AuthService {
         user.setVerificationToken(null);
 
         return userRepository.save(user);
+    }
+    @Override
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("User is not authenticated");
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof CustomUserDetails userDetails) {
+            return userDetails.getUser();
+        } else {
+            throw new AccessDeniedException("User details not found in security context");
+        }
     }
 }

@@ -12,8 +12,10 @@ import com.cagri.hrms.mapper.LeaveMapper;
 import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.LeaveDefinitionRepository;
 import com.cagri.hrms.repository.LeaveRepository;
+import com.cagri.hrms.service.AuthService;
 import com.cagri.hrms.service.LeaveService;
 import com.cagri.hrms.service.NotificationService;
+import com.cagri.hrms.service.UserService;
 import com.cagri.hrms.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,8 @@ public class LeaveServiceImpl implements LeaveService {
     private final LeaveDefinitionRepository leaveDefinitionRepository;
     private final LeaveMapper leaveMapper;
     private final NotificationService notificationService;
+    private final AuthService authService;
+    private final UserService userService;
 
     /**
      * Submit a new leave request.
@@ -38,18 +42,14 @@ public class LeaveServiceImpl implements LeaveService {
      */
     @Override
     public void requestLeave(LeaveRequestDTO dto) {
-        // Get current logged-in user
         User currentUser = SecurityUtil.getCurrentUser();
         Employee targetEmployee;
 
-        // Determine employee for whom the leave is being requested
         if (currentUser.hasRole("EMPLOYEE")) {
             // Employee can only request leave for themselves
             targetEmployee = employeeRepository.findByUser(currentUser)
                     .orElseThrow(() -> new RuntimeException("Employee not found"));
-
-            dto.setEmployeeId(targetEmployee.getId()); // override just in case
-
+            dto.setEmployeeId(targetEmployee.getId());
         } else if (currentUser.hasRole("MANAGER")) {
             // Manager must specify employeeId
             if (dto.getEmployeeId() == null) {
@@ -59,16 +59,15 @@ public class LeaveServiceImpl implements LeaveService {
             targetEmployee = employeeRepository.findById(dto.getEmployeeId())
                     .orElseThrow(() -> new RuntimeException("Employee not found"));
 
-            // ❌ Manager should NOT be able to create leave for themselves
+            // Manager should NOT be able to create leave for themselves
             if (targetEmployee.getUser().getId().equals(currentUser.getId())) {
                 throw new RuntimeException("Manager cannot request leave for themselves");
             }
 
-            // 🔐 Optional: Only allow leave request for employees in the same company
+            // Optional: Only allow leave request for employees in the same company
             if (!targetEmployee.getCompany().getId().equals(currentUser.getCompany().getId())) {
                 throw new RuntimeException("You can only request leave for employees in your own company");
             }
-
         } else {
             throw new RuntimeException("Unauthorized role");
         }
@@ -77,14 +76,18 @@ public class LeaveServiceImpl implements LeaveService {
         if (dto.getLeaveDefinitionId() == null || dto.getLeaveDefinitionId() <= 0) {
             throw new RuntimeException("Leave type (leaveDefinitionId) must be selected.");
         }
+
         LeaveDefinition leaveDefinition = leaveDefinitionRepository.findById(dto.getLeaveDefinitionId())
                 .orElseThrow(() -> new RuntimeException("Leave definition not found"));
 
-        // Create and save leave
+        // Create and populate Leave entity
         Leave leave = leaveMapper.toEntity(dto);
         leave.setEmployee(targetEmployee);
         leave.setLeaveDefinition(leaveDefinition);
         leave.setRequestDate(LocalDate.now());
+
+        // Track who created the leave (employee or manager)
+        leave.setCreatedBy(currentUser);
 
         if (currentUser.hasRole("EMPLOYEE")) {
             leave.setStatus(LeaveStatus.PENDING);
@@ -183,5 +186,24 @@ public class LeaveServiceImpl implements LeaveService {
         return leaveRepository.findAllByStatus(LeaveStatus.REJECTED).stream()
                 .map(leaveMapper::toDto)
                 .toList();
+    }
+
+    @Override
+    public List<LeaveResponseDTO> getLeavesAssignedByManager() {
+        User currentManager = authService.getCurrentUser(); // manager who is logged in
+
+        // Only leaves that this manager has created
+        List<Leave> leaves = leaveRepository.findAllByCreatedBy_Id(currentManager.getId());
+
+        return leaves.stream()
+                .map(leaveMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    public List<LeaveResponseDTO> getLeavesWaitingForMyApproval() {
+        User currentUser = userService.getCurrentUser();
+        List<Leave> pendingLeaves = leaveRepository.findByStatusAndManager_Id(LeaveStatus.PENDING, currentUser.getId());
+        return leaveMapper.toResponseDTOList(pendingLeaves);
     }
 }
