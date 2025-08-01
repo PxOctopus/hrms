@@ -66,5 +66,14 @@ public class User {
     @JoinColumn(name = "company_id")
     private Company company;
 
+    /**
+     * Checks if the user has the specified role.
+     *
+     * @param roleName the role name to check (e.g. "MANAGER")
+     * @return true if the user's role matches the given role name, false otherwise
+     */
+    public boolean hasRole(String roleName) {
+        return this.role != null && roleName.equalsIgnoreCase(this.role.getName());
+    }
 
 }

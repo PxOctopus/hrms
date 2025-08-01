@@ -31,43 +31,75 @@ public class LeaveServiceImpl implements LeaveService {
     private final LeaveMapper leaveMapper;
     private final NotificationService notificationService;
 
-    // Submit a leave request
+    /**
+     * Submit a new leave request.
+     * If a manager creates a leave for another employee, status is APPROVED by default.
+     * If an employee creates their own leave request, status is PENDING.
+     */
     @Override
     public void requestLeave(LeaveRequestDTO dto) {
         Leave leave = leaveMapper.toEntity(dto);
 
-        // Fetch employee and leave type
+        // Fetch employee and leave type from database
         Employee employee = employeeRepository.findById(dto.getEmployeeId())
                 .orElseThrow(() -> new RuntimeException("Employee not found"));
         LeaveDefinition leaveDefinition = leaveDefinitionRepository.findById(dto.getLeaveDefinitionId())
                 .orElseThrow(() -> new RuntimeException("Leave definition not found"));
 
-        // Set fields
+        // Get current logged-in user
+        User currentUser = SecurityUtil.getCurrentUser();
+
+        // Check if the request is for the current user or for another employee
+        boolean isSelfRequest = employee.getUser().getId().equals(currentUser.getId());
+
+        // Security: Only managers can create leaves for other employees
+        if (!isSelfRequest && !currentUser.hasRole("MANAGER")) {
+            throw new RuntimeException("Only managers can create leave for others!");
+            // Optionally, you can use: throw new AccessDeniedException(...)
+        }
+
+        // Set leave status and decision date depending on who is making the request
+        if (isSelfRequest) {
+            // Employee requests their own leave -> status is PENDING
+            leave.setStatus(LeaveStatus.PENDING);
+        } else {
+            // Manager creates leave for an employee -> status is APPROVED
+            leave.setStatus(LeaveStatus.APPROVED);
+            leave.setDecisionDate(LocalDate.now());
+            leave.setManagerNote("Created by manager");
+        }
+
+        // Set other fields
         leave.setEmployee(employee);
         leave.setLeaveDefinition(leaveDefinition);
-        leave.setStatus(LeaveStatus.PENDING);
         leave.setRequestDate(LocalDate.now());
 
         leaveRepository.save(leave);
     }
 
-    // Approve or reject a leave
+    /**
+     * Approve or reject a leave request.
+     * Updates the leave status and decision date.
+     * Notifies the employee about the decision.
+     */
     @Override
     public void approveOrRejectLeave(LeaveApprovalDTO dto) {
         Leave leave = leaveRepository.findById(dto.getLeaveId())
                 .orElseThrow(() -> new RuntimeException("Leave not found"));
 
-        // Set status and decision date
+        // Update leave status and decision date
         leave.setStatus(dto.isApproved() ? LeaveStatus.APPROVED : LeaveStatus.REJECTED);
         leave.setDecisionDate(LocalDate.now());
 
         leaveRepository.save(leave);
 
-        // Notify employee
+        // Notify employee about the decision (approve/reject)
         notificationService.sendLeaveDecisionNotification(leave.getEmployee(), dto.isApproved());
     }
 
-    // Get all leaves
+    /**
+     * Get all leaves in the system.
+     */
     @Override
     public List<LeaveResponseDTO> getAllLeaves() {
         return leaveRepository.findAll().stream()
@@ -75,7 +107,9 @@ public class LeaveServiceImpl implements LeaveService {
                 .toList();
     }
 
-    // Get leaves by employee ID
+    /**
+     * Get all leaves for a specific employee.
+     */
     @Override
     public List<LeaveResponseDTO> getLeavesByEmployeeId(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
@@ -86,6 +120,9 @@ public class LeaveServiceImpl implements LeaveService {
                 .toList();
     }
 
+    /**
+     * Get all leaves of the current logged-in employee.
+     */
     @Override
     public List<LeaveResponseDTO> getLeavesOfCurrentEmployee() {
         User currentUser = SecurityUtil.getCurrentUser();
@@ -98,7 +135,9 @@ public class LeaveServiceImpl implements LeaveService {
                 .toList();
     }
 
-    // Get approved leaves
+    /**
+     * Get all approved leaves.
+     */
     @Override
     public List<LeaveResponseDTO> getApprovedLeaves() {
         return leaveRepository.findAllByStatus(LeaveStatus.APPROVED).stream()
@@ -106,7 +145,9 @@ public class LeaveServiceImpl implements LeaveService {
                 .toList();
     }
 
-    // Get pending leaves
+    /**
+     * Get all pending leaves.
+     */
     @Override
     public List<LeaveResponseDTO> getPendingLeaves() {
         return leaveRepository.findAllByStatus(LeaveStatus.PENDING).stream()
@@ -114,7 +155,9 @@ public class LeaveServiceImpl implements LeaveService {
                 .toList();
     }
 
-    // Get rejected leaves
+    /**
+     * Get all rejected leaves.
+     */
     @Override
     public List<LeaveResponseDTO> getRejectedLeaves() {
         return leaveRepository.findAllByStatus(LeaveStatus.REJECTED).stream()

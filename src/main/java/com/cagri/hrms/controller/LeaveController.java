@@ -18,38 +18,41 @@ public class LeaveController {
 
     private final LeaveService leaveService;
 
-    // Allows MANAGER to request leave on behalf of an employee
+    /**
+     * Allows both EMPLOYEE and MANAGER to request leave.
+     * - EMPLOYEE can request leave only for themselves.
+     * - MANAGER can request leave for any employee (including themselves).
+     * The service layer checks and enforces these business rules.
+     */
     @PostMapping
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER')")
     public ResponseEntity<Void> requestLeave(@RequestBody LeaveRequestDTO dto) {
         leaveService.requestLeave(dto);
         return ResponseEntity.ok().build();
     }
 
-    // Allows MANAGER to view all leave requests
+    // Only MANAGER can view all leave requests
     @GetMapping
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<List<LeaveResponseDTO>> getAllLeaves() {
         return ResponseEntity.ok(leaveService.getAllLeaves());
     }
 
-    // Allows MANAGER to view leave requests of a specific employee
+    // Only MANAGER can view leave requests of a specific employee
     @GetMapping("/by-employee/{id}")
     @PreAuthorize("hasRole('MANAGER')")
-    // When a MANAGER selects an employee from the frontend, the employee's ID is passed as a path variable.
     public ResponseEntity<List<LeaveResponseDTO>> getLeavesByEmployeeId(@PathVariable Long id) {
-    // This ID is used to retrieve the leave records of that specific employee.
         return ResponseEntity.ok(leaveService.getLeavesByEmployeeId(id));
     }
 
-    // Allows EMPLOYEE to view their own leave requests
+    // EMPLOYEE can view their own leaves
     @GetMapping("/my-leaves")
     @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<List<LeaveResponseDTO>> getMyLeaves() {
         return ResponseEntity.ok(leaveService.getLeavesOfCurrentEmployee());
     }
 
-    // Allows MANAGER to approve or reject a leave request
+    // Only MANAGER can approve or reject leave
     @PostMapping("/decision")
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<Void> approveOrRejectLeave(@RequestBody LeaveApprovalDTO dto) {
