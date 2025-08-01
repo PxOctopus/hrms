@@ -38,51 +38,61 @@ public class LeaveServiceImpl implements LeaveService {
      */
     @Override
     public void requestLeave(LeaveRequestDTO dto) {
-        Leave leave = leaveMapper.toEntity(dto);
-
         // Get current logged-in user
         User currentUser = SecurityUtil.getCurrentUser();
-        Employee employee;
+        Employee targetEmployee;
 
-        // Determine for whom the leave is being created
-        if (dto.getEmployeeId() == null) {
-            // No employeeId sent: user is creating leave for themselves
-            employee = employeeRepository.findByUser(currentUser)
+        // Determine employee for whom the leave is being requested
+        if (currentUser.hasRole("EMPLOYEE")) {
+            // Employee can only request leave for themselves
+            targetEmployee = employeeRepository.findByUser(currentUser)
                     .orElseThrow(() -> new RuntimeException("Employee not found"));
-        } else {
-            // Manager may create leave for another employee
-            employee = employeeRepository.findById(dto.getEmployeeId())
-                    .orElseThrow(() -> new RuntimeException("Employee not found"));
-            boolean isSelfRequest = employee.getUser().getId().equals(currentUser.getId());
-            // Security: Only managers can create leaves for others
-            if (!isSelfRequest && !currentUser.hasRole("MANAGER")) {
-                throw new RuntimeException("Only managers can create leave for others!");
+
+            dto.setEmployeeId(targetEmployee.getId()); // override just in case
+
+        } else if (currentUser.hasRole("MANAGER")) {
+            // Manager must specify employeeId
+            if (dto.getEmployeeId() == null) {
+                throw new RuntimeException("Manager must provide employeeId");
             }
+
+            targetEmployee = employeeRepository.findById(dto.getEmployeeId())
+                    .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+            // ❌ Manager should NOT be able to create leave for themselves
+            if (targetEmployee.getUser().getId().equals(currentUser.getId())) {
+                throw new RuntimeException("Manager cannot request leave for themselves");
+            }
+
+            // 🔐 Optional: Only allow leave request for employees in the same company
+            if (!targetEmployee.getCompany().getId().equals(currentUser.getCompany().getId())) {
+                throw new RuntimeException("You can only request leave for employees in your own company");
+            }
+
+        } else {
+            throw new RuntimeException("Unauthorized role");
         }
 
-        // Leave type must be selected (leaveDefinitionId cannot be null or <=0)
+        // Validate leave type
         if (dto.getLeaveDefinitionId() == null || dto.getLeaveDefinitionId() <= 0) {
             throw new RuntimeException("Leave type (leaveDefinitionId) must be selected.");
         }
         LeaveDefinition leaveDefinition = leaveDefinitionRepository.findById(dto.getLeaveDefinitionId())
                 .orElseThrow(() -> new RuntimeException("Leave definition not found"));
 
-        // Status and decision logic
-        boolean isSelfRequest = employee.getUser().getId().equals(currentUser.getId());
-        if (isSelfRequest) {
-            // Employee requests their own leave → status is PENDING
-            leave.setStatus(LeaveStatus.PENDING);
-        } else {
-            // Manager creates leave for another employee → status is APPROVED
-            leave.setStatus(LeaveStatus.APPROVED);
-            leave.setDecisionDate(LocalDate.now());
-            leave.setManagerNote("Created by manager");
-        }
-
-        // Set other fields
-        leave.setEmployee(employee);
+        // Create and save leave
+        Leave leave = leaveMapper.toEntity(dto);
+        leave.setEmployee(targetEmployee);
         leave.setLeaveDefinition(leaveDefinition);
         leave.setRequestDate(LocalDate.now());
+
+        if (currentUser.hasRole("EMPLOYEE")) {
+            leave.setStatus(LeaveStatus.PENDING);
+        } else {
+            leave.setStatus(LeaveStatus.APPROVED);
+            leave.setDecisionDate(LocalDate.now());
+            leave.setManagerNote("Approved by manager during creation");
+        }
 
         leaveRepository.save(leave);
     }
