@@ -4,6 +4,7 @@ import com.cagri.hrms.dto.request.auth.LoginRequestDTO;
 import com.cagri.hrms.dto.request.auth.RegisterRequestDTO;
 import com.cagri.hrms.dto.request.general.ForgotPasswordRequestDTO;
 import com.cagri.hrms.dto.request.general.ResetPasswordRequestDTO;
+import com.cagri.hrms.dto.request.general.SetPasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.VerifyEmailRequestDTO;
 import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
 import com.cagri.hrms.dto.response.auth.VerifyEmailResponseDTO;
@@ -15,6 +16,7 @@ import com.cagri.hrms.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -67,6 +69,12 @@ public class AuthController {
         return ResponseEntity.ok(new MessageResponseDTO("Password has been reset successfully."));
     }
 
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/set-password")
+    public ResponseEntity<MessageResponseDTO> setPassword(@Valid @RequestBody SetPasswordRequestDTO request) {
+        authService.setPassword(request);
+        return ResponseEntity.ok(new MessageResponseDTO("Password updated successfully."));
+    }
     @PostMapping("/logout")
     public ResponseEntity<MessageResponseDTO> logout() {
 

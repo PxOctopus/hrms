@@ -4,6 +4,7 @@ import com.cagri.hrms.dto.request.auth.LoginRequestDTO;
 import com.cagri.hrms.dto.request.auth.RegisterRequestDTO;
 import com.cagri.hrms.dto.request.general.ForgotPasswordRequestDTO;
 import com.cagri.hrms.dto.request.general.ResetPasswordRequestDTO;
+import com.cagri.hrms.dto.request.general.SetPasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.VerifyEmailRequestDTO;
 import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
 import com.cagri.hrms.entity.core.User;
@@ -23,4 +24,5 @@ public interface AuthService {
 
     User getCurrentUser();
 
+    void setPassword(SetPasswordRequestDTO request);
 }

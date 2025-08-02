@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -35,40 +36,60 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     public EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {
+        // Get the company associated with the authenticated manager
         Company company = authenticatedUser.getCompany();
         if (company == null) {
             throw new EntityNotFoundException("Authenticated user is not associated with any company.");
         }
 
-        // Determine approval status based on the role of the authenticated user
+        // Check if the authenticated user is a manager
         boolean isManager = authenticatedUser.getRole().getName().equals("MANAGER");
 
-        // If manager is registering an employee, create associated User account
+        // Generate a temporary password for the new employee
+        String tempPassword = PasswordUtil.generateTempPassword(10);
+
+        // Create a new User entity for the employee
         User employeeUser = new User();
         employeeUser.setFullName(requestDTO.getFullName());
         employeeUser.setEmail(requestDTO.getEmail());
-        employeeUser.setPassword(passwordEncoder.encode("Temp1234")); // Temporary password
-        employeeUser.setCompany(company);
-        employeeUser.setRole(roleRepository.findByName("EMPLOYEE").orElseThrow());
-        employeeUser.setEnabled(isManager); // Only manager-created users are immediately enabled
-        employeeUser.setEmailVerified(false); // Require email verification
-        userRepository.save(employeeUser);
-
-        // Map DTO to Employee entity using mapper
-        Employee employee = employeeMapper.toEntity(requestDTO, employeeUser, company);
-
-        employee.setIsPendingApprovalByManager(!isManager); // Manager: false, Employee: true
-        employee.setActive(!employee.getIsPendingApprovalByManager()); // Active if not pending
-
-        String tempPassword = PasswordUtil.generateTempPassword(10);
         employeeUser.setPassword(passwordEncoder.encode(tempPassword));
-        userRepository.save(employeeUser);
+        employeeUser.setMustChangePassword(true); // Force password change on first login
+        employeeUser.setCompany(company); // Associate user with the same company as the manager
+        employeeUser.setRole(roleRepository.findByName("EMPLOYEE")
+                .orElseThrow(() -> new EntityNotFoundException("Role 'EMPLOYEE' not found")));
+        employeeUser.setEnabled(isManager); // Enable user immediately if created by a manager
+        employeeUser.setEmailVerified(isManager); // Auto-verify email if created by a manager
+        employeeUser.setCreatedAt(LocalDate.now());
 
-// Send welcome email with reset password instructions (only if manager created the employee)
-        if (isManager) {
-            mailService.sendWelcomeEmail(requestDTO.getEmail(), requestDTO.getFullName(), tempPassword);
+        // Save and use returned savedUser to ensure user ID is populated
+        User savedUser = userRepository.save(employeeUser);
+
+        // Map request DTO to Employee entity and a link saved user and company
+        Employee employee = employeeMapper.toEntity(requestDTO, savedUser, company);
+        employee.setUser(savedUser); // Ensuring employee.user_id is set by explicitly assigning savedUser in this method
+        employee.setCompany(company); // Ensure company is explicitly set
+        employee.setIsPendingApprovalByManager(!isManager); // Require approval if not created by manager
+        employee.setActive(!employee.getIsPendingApprovalByManager()); // Active only if approved
+
+        // Save the Employee entity
+        employeeRepository.save(employee);
+
+        // If the employee is active immediately, increment the company's employee count
+        if (employee.isActive()) {
+            company.setNumberOfEmployees(company.getNumberOfEmployees() + 1);
+            companyRepository.save(company);
         }
 
+        // Send welcome email if employee is created directly by the manager
+        if (isManager) {
+            mailService.sendWelcomeEmail(
+                    requestDTO.getEmail(),
+                    requestDTO.getFullName(),
+                    tempPassword
+            );
+        }
+
+        // Convert and return the Employee entity as a response DTO
         return employeeMapper.toDTO(employee);
     }
 

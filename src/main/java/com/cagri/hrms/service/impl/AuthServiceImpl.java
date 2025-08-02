@@ -4,6 +4,7 @@ import com.cagri.hrms.dto.request.auth.LoginRequestDTO;
 import com.cagri.hrms.dto.request.auth.RegisterRequestDTO;
 import com.cagri.hrms.dto.request.general.ForgotPasswordRequestDTO;
 import com.cagri.hrms.dto.request.general.ResetPasswordRequestDTO;
+import com.cagri.hrms.dto.request.general.SetPasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.VerifyEmailRequestDTO;
 import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
 import com.cagri.hrms.entity.core.Company;
@@ -185,7 +186,11 @@ public class AuthServiceImpl implements AuthService {
         // Generate JWT token
         String token = jwtService.generateToken(user);
 
-        return new AuthResponseDTO(token, user.getRole().getName());
+        // Create response and set mustChangePassword
+        AuthResponseDTO response = new AuthResponseDTO(token, user.getRole().getName());
+        response.setMustChangePassword(user.isMustChangePassword());
+
+        return response;
     }
 
     @Override
@@ -249,5 +254,21 @@ public class AuthServiceImpl implements AuthService {
         } else {
             throw new AccessDeniedException("User details not found in security context");
         }
+    }
+
+    @Override
+    public void setPassword(SetPasswordRequestDTO request) {
+        // Get currently authenticated user
+        User user = getCurrentUser();
+
+        // Encode and set the new password
+        String encodedPassword = passwordEncoder.encode(request.getNewPassword());
+        user.setPassword(encodedPassword);
+
+        // Disable mustChangePassword flag
+        user.setMustChangePassword(false);
+
+        // Persist the changes
+        userRepository.save(user);
     }
 }

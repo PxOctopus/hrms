@@ -1,4 +1,5 @@
 package com.cagri.hrms.service;
+import com.cagri.hrms.dto.response.auth.AuthResponseDTO;
 import io.jsonwebtoken.Jwts;
 import com.cagri.hrms.entity.core.User;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -55,6 +56,15 @@ public class JwtService {
             // This placeholder is temporary and will be refactored during global exception handling implementation.
             throw new RuntimeException("Invalid or expired JWT token");
         }
+    }
+
+    public AuthResponseDTO generateTokenResponse(User user) {
+        String token = generateToken(user);
+        return new AuthResponseDTO(
+                token,
+                user.getRole().getName(),
+                user.isMustChangePassword()
+        );
     }
 }
 

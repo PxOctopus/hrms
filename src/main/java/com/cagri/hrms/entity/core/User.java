@@ -76,4 +76,6 @@ public class User {
         return this.role != null && roleName.equalsIgnoreCase(this.role.getName());
     }
 
+    @Column(name = "must_change_password")
+    private boolean mustChangePassword = true;
 }
