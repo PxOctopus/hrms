@@ -1,10 +1,7 @@
 package com.cagri.hrms.dto.request.employee;
 
 import com.cagri.hrms.enums.ContractType;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 
@@ -34,6 +31,13 @@ public class EmployeeCreateRequestDTO {
     private Integer annualLeave;
 
     // Manager can decide whether the employee needs approval
-    @NotNull(message = "Approval status must be specified")
+//    @NotNull(message = "Approval status must be specified")
     private Boolean isPendingApprovalByManager;
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email should be valid")
+    private String email;
+
+    @NotBlank(message = "Full name is required")
+    private String fullName;
 }

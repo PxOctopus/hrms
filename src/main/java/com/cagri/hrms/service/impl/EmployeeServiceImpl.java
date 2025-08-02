@@ -5,14 +5,18 @@ import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.employee.Employee;
 import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.entity.core.Role;
 import com.cagri.hrms.mapper.EmployeeMapper;
 import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.UserRepository;
+import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.MailService;
+import com.cagri.hrms.util.PasswordUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,7 +29,9 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeMapper employeeMapper;
     private final MailService mailService;
     private final CompanyRepository companyRepository;
-    private final UserRepository userRepository; // Added for updating user's enabled field
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {
@@ -34,22 +40,35 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new EntityNotFoundException("Authenticated user is not associated with any company.");
         }
 
+        // Determine approval status based on the role of the authenticated user
+        boolean isManager = authenticatedUser.getRole().getName().equals("MANAGER");
+
+        // If manager is registering an employee, create associated User account
+        User employeeUser = new User();
+        employeeUser.setFullName(requestDTO.getFullName());
+        employeeUser.setEmail(requestDTO.getEmail());
+        employeeUser.setPassword(passwordEncoder.encode("Temp1234")); // Temporary password
+        employeeUser.setCompany(company);
+        employeeUser.setRole(roleRepository.findByName("EMPLOYEE").orElseThrow());
+        employeeUser.setEnabled(isManager); // Only manager-created users are immediately enabled
+        employeeUser.setEmailVerified(false); // Require email verification
+        userRepository.save(employeeUser);
+
         // Map DTO to Employee entity using mapper
-        Employee employee = employeeMapper.toEntity(requestDTO, authenticatedUser, company);
+        Employee employee = employeeMapper.toEntity(requestDTO, employeeUser, company);
 
-        // If manager didn't specify approval status, default to false (already approved)
-        if (employee.getIsPendingApprovalByManager() == null) {
-            employee.setIsPendingApprovalByManager(false);
+        employee.setIsPendingApprovalByManager(!isManager); // Manager: false, Employee: true
+        employee.setActive(!employee.getIsPendingApprovalByManager()); // Active if not pending
+
+        String tempPassword = PasswordUtil.generateTempPassword(10);
+        employeeUser.setPassword(passwordEncoder.encode(tempPassword));
+        userRepository.save(employeeUser);
+
+// Send welcome email with reset password instructions (only if manager created the employee)
+        if (isManager) {
+            mailService.sendWelcomeEmail(requestDTO.getEmail(), requestDTO.getFullName(), tempPassword);
         }
 
-        // Set isActive based on approval status
-        if (Boolean.TRUE.equals(employee.getIsPendingApprovalByManager())) {
-            employee.setActive(false); // Employee is waiting for manager approval
-        } else {
-            employee.setActive(true);  // Employee is immediately active
-        }
-
-        employeeRepository.save(employee);
         return employeeMapper.toDTO(employee);
     }
 
@@ -88,17 +107,12 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setCompany(company);
         employee.setUpdatedAt(System.currentTimeMillis());
 
-        // Ensure isPendingApprovalByManager is not null
-        if (employee.getIsPendingApprovalByManager() == null) {
-            employee.setIsPendingApprovalByManager(false);
-        }
+        // Determine approval status based on the role of the authenticated user
+        boolean isManager = authenticatedUser.getRole().getName().equals("MANAGER");
+        employee.setIsPendingApprovalByManager(!isManager);
 
-        // Update isActive based on approval status
-        if (Boolean.TRUE.equals(employee.getIsPendingApprovalByManager())) {
-            employee.setActive(false);
-        } else {
-            employee.setActive(true);
-        }
+        // Set isActive based on approval status
+        employee.setActive(!employee.getIsPendingApprovalByManager());
 
         employeeRepository.save(employee);
         return employeeMapper.toDTO(employee);

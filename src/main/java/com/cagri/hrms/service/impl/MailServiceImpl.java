@@ -178,4 +178,20 @@ public class MailServiceImpl implements MailService {
             throw new IllegalStateException("Failed to send email to: " + to, e);
         }
     }
+
+    @Override
+    public void sendWelcomeEmail(String to, String fullName, String tempPassword) {
+        String subject = "Welcome to HRMS!";
+        String body = String.format("""
+        <p>Hello %s,</p>
+        <p>Your employee account has been created.</p>
+        <p><strong>Temporary login credentials:</strong><br>
+        Email: %s<br>
+        Password: %s</p>
+        <p>Please login and change your password.</p>
+        <p>Regards,<br>HRMS Team</p>
+        """, fullName, to, tempPassword);
+
+        sendEmail(to, subject, body);
+    }
 }

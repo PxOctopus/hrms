@@ -25,6 +25,7 @@ public interface EmployeeMapper {
     @Mapping(target = "address", source = "dto.address")
     @Mapping(target = "salary", source = "dto.salary")
     @Mapping(target = "annualLeave", source = "dto.annualLeave")
+    @Mapping(target = "email", source = "dto.email") // NEW: maps manager input if available
     @Mapping(target = "isActive", constant = "true")
     @Mapping(target = "createdAt", expression = "java(System.currentTimeMillis())")
     @Mapping(target = "updatedAt", ignore = true)
@@ -39,7 +40,10 @@ public interface EmployeeMapper {
                                       @Context Company company) {
         employee.setUser(user);
         employee.setCompany(company);
-        employee.setEmail(user.getEmail());
+
+        if (employee.getEmail() == null) {
+            employee.setEmail(user.getEmail());
+        }
     }
 
     @Mapping(target = "updatedAt", expression = "java(System.currentTimeMillis())")

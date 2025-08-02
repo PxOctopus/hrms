@@ -8,4 +8,5 @@ public interface MailService {
     void sendApprovalEmail(String to, String companyName);
     void sendEmployeePendingApprovalNotification(String employeeEmail, String companyName);
     void sendPendingEmployeeNotificationToManager(String managerEmail, String employeeName, String companyName);
+    void sendWelcomeEmail(String to, String fullName, String tempPassword);
 }
