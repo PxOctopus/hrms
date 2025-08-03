@@ -143,8 +143,13 @@ public class EmployeeServiceImpl implements EmployeeService {
     public void deleteEmployee(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
+
+        User user = employee.getUser(); // get the user connected to the employee
+
         // Remove employee from the database
         employeeRepository.delete(employee);
+         // Remove user from the database
+        userRepository.delete(user);
     }
 
     @Override
