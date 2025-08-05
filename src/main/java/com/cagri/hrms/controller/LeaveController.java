@@ -73,4 +73,10 @@ public class LeaveController {
         leaveService.approveOrRejectLeave(dto);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/approved-by-me")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<List<LeaveResponseDTO>> getLeavesApprovedByMe() {
+        return ResponseEntity.ok(leaveService.getLeavesApprovedByManager());
+    }
 }

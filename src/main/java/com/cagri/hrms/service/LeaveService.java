@@ -35,4 +35,6 @@ public interface LeaveService {
     List<LeaveResponseDTO> getLeavesAssignedByManager();
 
     List<LeaveResponseDTO> getLeavesWaitingForMyApproval();
+
+    List<LeaveResponseDTO> getLeavesApprovedByManager();
 }

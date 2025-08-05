@@ -214,4 +214,13 @@ public class LeaveServiceImpl implements LeaveService {
 
         return leaveMapper.toResponseDTOList(pendingLeaves);
     }
+
+    @Override
+    public List<LeaveResponseDTO> getLeavesApprovedByManager() {
+        User currentManager = authService.getCurrentUser();
+        List<Leave> approvedLeaves = leaveRepository.findByStatusAndManager_Id(LeaveStatus.APPROVED, currentManager.getId());
+        return approvedLeaves.stream()
+                .map(leaveMapper::toDto)
+                .toList();
+    }
 }
