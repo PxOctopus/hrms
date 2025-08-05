@@ -25,4 +25,6 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
     List<Leave> findAllByCreatedBy_Id(Long managerId);
 
     List<Leave> findByStatusAndManager_Id(LeaveStatus status, Long managerId);
+
+    List<Leave> findByEmployee_Company_IdAndStatus(Long companyId, LeaveStatus status);
 }

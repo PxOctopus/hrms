@@ -203,7 +203,11 @@ public class LeaveServiceImpl implements LeaveService {
     @Override
     public List<LeaveResponseDTO> getLeavesWaitingForMyApproval() {
         User currentUser = userService.getCurrentUser();
-        List<Leave> pendingLeaves = leaveRepository.findByStatusAndManager_Id(LeaveStatus.PENDING, currentUser.getId());
+        Long companyId = currentUser.getCompany().getId();
+
+        List<Leave> pendingLeaves = leaveRepository
+                .findByEmployee_Company_IdAndStatus(companyId, LeaveStatus.PENDING);
+
         return leaveMapper.toResponseDTOList(pendingLeaves);
     }
 }
