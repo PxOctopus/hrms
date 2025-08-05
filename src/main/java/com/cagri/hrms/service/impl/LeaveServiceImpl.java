@@ -95,6 +95,7 @@ public class LeaveServiceImpl implements LeaveService {
             leave.setStatus(LeaveStatus.APPROVED);
             leave.setDecisionDate(LocalDate.now());
             leave.setManagerNote("Approved by manager during creation");
+            leave.setManager(currentUser);
         }
 
         leaveRepository.save(leave);
