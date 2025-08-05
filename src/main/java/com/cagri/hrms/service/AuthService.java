@@ -24,5 +24,5 @@ public interface AuthService {
 
     User getCurrentUser();
 
-    void setPassword(SetPasswordRequestDTO request);
+    void setPassword(SetPasswordRequestDTO request, User user);
 }

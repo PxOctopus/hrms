@@ -31,8 +31,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getServletPath();
 
-        // Skip JWT filter for public endpoints
-        if (path.startsWith("/api/auth") || path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")) {
+        // Skip JWT authentication for public endpoints defined in JwtPathWhiteList
+        if (JwtPathWhiteList.isPublic(path)) {
             filterChain.doFilter(request, response);
             return;
         }

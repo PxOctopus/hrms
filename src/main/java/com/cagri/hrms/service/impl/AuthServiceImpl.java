@@ -256,19 +256,17 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    @Override
-    public void setPassword(SetPasswordRequestDTO request) {
-        // Get currently authenticated user
-        User user = getCurrentUser();
-
-        // Encode and set the new password
+    public void setPassword(SetPasswordRequestDTO request, User user) {
+        // Encode the new password using the configured password encoder
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
+
+        // Set the encoded password for the given user
         user.setPassword(encodedPassword);
 
-        // Disable mustChangePassword flag
+        // Disable the mustChangePassword flag since the user has now set a new password
         user.setMustChangePassword(false);
 
-        // Persist the changes
+        // Persist the updated user entity to the database
         userRepository.save(user);
     }
 }

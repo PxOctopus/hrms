@@ -16,4 +16,5 @@ public class UserResponseDTO {
     private String pendingCompanyName;
     private CompanyResponseDTO company;
     private boolean companyApproved;
+    private boolean mustChangePassword;
 }

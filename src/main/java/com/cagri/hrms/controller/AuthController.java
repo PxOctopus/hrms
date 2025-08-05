@@ -12,11 +12,14 @@ import com.cagri.hrms.dto.response.general.MessageResponseDTO;
 import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.mapper.UserMapper;
+import com.cagri.hrms.security.CustomUserDetails;
 import com.cagri.hrms.service.AuthService;
+import com.cagri.hrms.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +32,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserMapper userMapper;
+    private final UserService userService;
 
     // POST /api/auth/register
     @PostMapping("/register")
@@ -71,10 +75,15 @@ public class AuthController {
 
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/set-password")
-    public ResponseEntity<MessageResponseDTO> setPassword(@Valid @RequestBody SetPasswordRequestDTO request) {
-        authService.setPassword(request);
+    public ResponseEntity<MessageResponseDTO> setPassword(
+            @Valid @RequestBody SetPasswordRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        User user = userService.getByEmail(userDetails.getUsername());
+        authService.setPassword(request, user);
         return ResponseEntity.ok(new MessageResponseDTO("Password updated successfully."));
     }
+
     @PostMapping("/logout")
     public ResponseEntity<MessageResponseDTO> logout() {
 

@@ -59,6 +59,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .orElseThrow(() -> new EntityNotFoundException("Role 'EMPLOYEE' not found")));
         employeeUser.setEnabled(isManager); // Enable user immediately if created by a manager
         employeeUser.setEmailVerified(isManager); // Auto-verify email if created by a manager
+        employeeUser.setIsActive(isManager); // Mark user as active only if created by a manager (bypasses approval)
         employeeUser.setCreatedAt(LocalDate.now());
 
         // Save and use returned savedUser to ensure user ID is populated
@@ -124,7 +125,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         // Update employee fields from DTO
         employeeMapper.updateFromDto(requestDTO, employee);
 
-        employee.setUser(authenticatedUser);
+//        employee.setUser(authenticatedUser);
         employee.setCompany(company);
         employee.setUpdatedAt(System.currentTimeMillis());
 
