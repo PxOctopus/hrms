@@ -111,6 +111,9 @@ public class LeaveServiceImpl implements LeaveService {
         Leave leave = leaveRepository.findById(dto.getLeaveId())
                 .orElseThrow(() -> new RuntimeException("Leave not found"));
 
+        // Set manager info (who approved or rejected)
+        leave.setManager(SecurityUtil.getCurrentUser());
+
         // Update leave status and decision date
         leave.setStatus(dto.isApproved() ? LeaveStatus.APPROVED : LeaveStatus.REJECTED);
         leave.setDecisionDate(LocalDate.now());
