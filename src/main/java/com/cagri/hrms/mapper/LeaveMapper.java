@@ -18,6 +18,7 @@ public interface LeaveMapper {
     @Mapping(target = "requestDate", ignore = true) // Set during request creation
     @Mapping(target = "decisionDate", ignore = true)
     @Mapping(target = "managerNote", ignore = true)
+    @Mapping(target = "manager", ignore = true)
     Leave toEntity(LeaveRequestDTO dto);
 
     @Mapping(source = "employee.id", target = "employeeId")
