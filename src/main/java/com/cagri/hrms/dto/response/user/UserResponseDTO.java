@@ -17,4 +17,7 @@ public class UserResponseDTO {
     private CompanyResponseDTO company;
     private boolean companyApproved;
     private boolean mustChangePassword;
+
+    private String phoneNumber;
+    private String address;
 }

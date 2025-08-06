@@ -1,6 +1,7 @@
 package com.cagri.hrms.service;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
+import com.cagri.hrms.dto.request.employee.EmployeeUpdateProfileRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.core.User;
 
@@ -25,4 +26,7 @@ public interface EmployeeService {
     void toggleActiveStatus(Long id);
 
     List<EmployeeResponseDTO> getPendingEmployeesForManager(User manager);
+
+    EmployeeResponseDTO updateOwnProfile(Long userId, EmployeeUpdateProfileRequestDTO dto);
+
 }

@@ -1,5 +1,6 @@
 package com.cagri.hrms.controller;
 
+import com.cagri.hrms.dto.request.general.ManagerUpdateProfileRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangeEmailRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangePasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.UserRequestDTO;
@@ -9,6 +10,7 @@ import com.cagri.hrms.security.CustomUserDetails;
 import com.cagri.hrms.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -69,5 +71,15 @@ public class UserController {
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         userService.deactivateUser(currentUser.getId());
         return ResponseEntity.ok(new MessageResponseDTO("Account deactivated."));
+    }
+
+    @PutMapping("/profile/manager")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<UserResponseDTO> updateManagerProfile(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestBody ManagerUpdateProfileRequestDTO dto) {
+
+        UserResponseDTO updated = userService.updateManagerProfile(currentUser.getId(), dto);
+        return ResponseEntity.ok(updated);
     }
 }

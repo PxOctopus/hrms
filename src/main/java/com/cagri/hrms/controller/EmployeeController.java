@@ -1,6 +1,7 @@
 package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
+import com.cagri.hrms.dto.request.employee.EmployeeUpdateProfileRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.dto.response.general.MessageResponseDTO;
 import com.cagri.hrms.entity.core.User;
@@ -85,5 +86,16 @@ public class EmployeeController {
         UserValidator.assertCompanyApproved(user);
         employeeService.toggleActiveStatus(id);
         return ResponseEntity.ok(new MessageResponseDTO("Employee status updated."));
+    }
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PutMapping("/my-profile")
+    public ResponseEntity<EmployeeResponseDTO> updateOwnProfile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid EmployeeUpdateProfileRequestDTO dto
+    ) {
+        User currentUser = userService.getUserByEmail(userDetails.getUsername());
+        EmployeeResponseDTO updated = employeeService.updateOwnProfile(currentUser.getId(), dto);
+        return ResponseEntity.ok(updated);
     }
 }

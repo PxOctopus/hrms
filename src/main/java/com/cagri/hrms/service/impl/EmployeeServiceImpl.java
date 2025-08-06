@@ -1,6 +1,7 @@
 package com.cagri.hrms.service.impl;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
+import com.cagri.hrms.dto.request.employee.EmployeeUpdateProfileRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.employee.Employee;
@@ -226,5 +227,25 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setUpdatedAt(System.currentTimeMillis());
 
         employeeRepository.save(employee);
+    }
+
+    @Override
+    public EmployeeResponseDTO updateOwnProfile(Long userId, EmployeeUpdateProfileRequestDTO dto) {
+        Employee employee = employeeRepository.findByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Employee not found for user ID: " + userId));
+
+        // Update employee-specific fields
+        employee.setPhoneNumber(dto.getPhoneNumber());
+        employee.setAddress(dto.getAddress());
+        employee.setBirthDate(dto.getBirthDate());
+        employee.setUpdatedAt(System.currentTimeMillis());
+
+        // Update user phone number too
+        User user = employee.getUser();
+        user.setPhoneNumber(dto.getPhoneNumber());
+        userRepository.save(user); // 🔒 Explicit save
+
+        employeeRepository.save(employee);
+        return employeeMapper.toDTO(employee);
     }
 }

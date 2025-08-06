@@ -14,6 +14,9 @@ public interface EmployeeMapper {
     @Mapping(source = "user.email", target = "email")
     @Mapping(source = "company.companyName", target = "companyName")
     @Mapping(source = "isPendingApprovalByManager", target = "isPendingApprovalByManager")
+    @Mapping(source = "phoneNumber", target = "phoneNumber")
+    @Mapping(source = "address", target = "address")
+    @Mapping(source = "birthDate", target = "birthDate")
     EmployeeResponseDTO toDTO(Employee employee);
 
     @Mapping(target = "birthDate", source = "dto.birthDate")

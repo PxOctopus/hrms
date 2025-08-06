@@ -78,4 +78,11 @@ public class User {
 
     @Column(name = "must_change_password")
     private boolean mustChangePassword = true;
+
+    // These will be using by EmployeeSelfUpdateDTO and ManagerSelfUpdateDTO
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "address")
+    private String address;
 }

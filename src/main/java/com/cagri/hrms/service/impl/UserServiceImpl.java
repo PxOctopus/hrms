@@ -1,5 +1,6 @@
 package com.cagri.hrms.service.impl;
 
+import com.cagri.hrms.dto.request.general.ManagerUpdateProfileRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangeEmailRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangePasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.UserRequestDTO;
@@ -192,6 +193,17 @@ public class UserServiceImpl implements UserService {
     public User getByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+    }
+
+    @Override
+    public UserResponseDTO updateManagerProfile(Long userId, ManagerUpdateProfileRequestDTO dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        user.setPhoneNumber(dto.getPhoneNumber());
+        user.setAddress(dto.getAddress());
+
+        return userMapper.toDTO(userRepository.save(user));
     }
 }
 

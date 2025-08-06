@@ -1,5 +1,6 @@
 package com.cagri.hrms.service;
 
+import com.cagri.hrms.dto.request.general.ManagerUpdateProfileRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangeEmailRequestDTO;
 import com.cagri.hrms.dto.request.user.ChangePasswordRequestDTO;
 import com.cagri.hrms.dto.request.user.UserRequestDTO;
@@ -32,4 +33,7 @@ public interface UserService {
 
     User getCurrentUser();
     User getByEmail(String email);
+
+    UserResponseDTO updateManagerProfile(Long userId, ManagerUpdateProfileRequestDTO dto);
+
 }
