@@ -16,6 +16,7 @@ import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.MailService;
 import com.cagri.hrms.util.PasswordUtil;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -113,34 +114,46 @@ public class EmployeeServiceImpl implements EmployeeService {
         return employeeMapper.toDTO(employee);
     }
 
+    @Transactional
     @Override
     public EmployeeResponseDTO updateEmployee(Long id, EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {
+        // 1. Fetch the employee entity
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
 
+        // 2. Ensure the authenticated user is associated with a company
         Company company = authenticatedUser.getCompany();
         if (company == null) {
             throw new EntityNotFoundException("Authenticated user is not associated with any company.");
         }
 
-        // Update employee fields from DTO
+        // 3. Update employee fields using MapStruct
         employeeMapper.updateFromDto(requestDTO, employee);
 
-//        employee.setUser(authenticatedUser);
+        // 4. Update associated User entity
+        User user = employee.getUser();
+        if (user != null) {
+            user.setFullName(requestDTO.getFullName());
+            user.setEmail(requestDTO.getEmail());
+            user.setPhoneNumber(requestDTO.getPhoneNumber());
+            userRepository.save(user);
+        }
+
+        // 5. Set company relation and update timestamp
         employee.setCompany(company);
         employee.setUpdatedAt(System.currentTimeMillis());
 
-        // Determine approval status based on the role of the authenticated user
+        // 6. Determine approval status based on the authenticated user's role
         boolean isManager = authenticatedUser.getRole().getName().equals("MANAGER");
         employee.setIsPendingApprovalByManager(!isManager);
 
-        // Set isActive based on approval status
+        // 7. Automatically set active status based on approval status
         employee.setActive(!employee.getIsPendingApprovalByManager());
 
-        employeeRepository.save(employee);
-        return employeeMapper.toDTO(employee);
+        // 8. Save and return the updated DTO
+        Employee updated = employeeRepository.save(employee);
+        return employeeMapper.toDTO(updated);
     }
-
     @Override
     public void deleteEmployee(Long id) {
         Employee employee = employeeRepository.findById(id)
