@@ -218,15 +218,16 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
-    public void toggleActiveStatus(Long id) {
+    public EmployeeResponseDTO toggleStatus(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + id));
 
-        // Toggle the employee's active status
         employee.setActive(!employee.isActive());
         employee.setUpdatedAt(System.currentTimeMillis());
 
-        employeeRepository.save(employee);
+        Employee updated = employeeRepository.save(employee);
+
+        return employeeMapper.toDTO(updated);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.cagri.hrms.dto.response.employee;
 
 import com.cagri.hrms.enums.ContractType;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -24,7 +25,10 @@ public class EmployeeResponseDTO {
     private String address;
     private BigDecimal salary;
     private Integer annualLeave;
+
+    @JsonProperty("isActive")
     private boolean isActive;
+
     private Long createdAt;
     private Long updatedAt;
     private boolean isPendingApprovalByManager;

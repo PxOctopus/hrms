@@ -23,7 +23,7 @@ public interface EmployeeService {
 
     void rejectEmployee(Long employeeId);
 
-    void toggleActiveStatus(Long id);
+    EmployeeResponseDTO toggleStatus(Long id);
 
     List<EmployeeResponseDTO> getPendingEmployeesForManager(User manager);
 

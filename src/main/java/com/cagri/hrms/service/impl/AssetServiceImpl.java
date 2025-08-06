@@ -42,7 +42,7 @@ public class AssetServiceImpl implements AssetService {
     }
     @Override
     public List<AssetResponseDTO> getAssetsOfActiveEmployees() {
-        return assetRepository.findAllByEmployee_IsActiveTrue()
+        return assetRepository.findAllByEmployee_ActiveTrue()
                 .stream()
                 .map(assetMapper::toDto)
                 .toList();
@@ -50,7 +50,7 @@ public class AssetServiceImpl implements AssetService {
 
     @Override
     public List<AssetResponseDTO> getAssetsByEmployeeId(Long employeeId) {
-        return assetRepository.findAllByEmployee_IdAndEmployee_IsActiveTrue(employeeId)
+        return assetRepository.findAllByEmployee_IdAndEmployee_ActiveTrue(employeeId)
                 .stream()
                 .map(assetMapper::toDto)
                 .toList();

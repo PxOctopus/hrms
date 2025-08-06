@@ -12,8 +12,8 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     List<Asset> findByEmployee(Employee employee);
 
     // Get all assets assigned to active employees
-    List<Asset> findAllByEmployee_IsActiveTrue();
+    List<Asset> findAllByEmployee_ActiveTrue();
 
     // Get all assets of a specific employee if the employee is active
-    List<Asset> findAllByEmployee_IdAndEmployee_IsActiveTrue(Long employeeId);
+    List<Asset> findAllByEmployee_IdAndEmployee_ActiveTrue(Long employeeId);
 }

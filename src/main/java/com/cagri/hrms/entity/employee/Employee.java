@@ -69,7 +69,7 @@ public class Employee {
     private Integer annualLeave;
 
     @Column(name = "is_active")
-    private boolean isActive;
+    private boolean active;
 
     @Column(name = "is_pending_approval_by_manager")
     private Boolean isPendingApprovalByManager = true;

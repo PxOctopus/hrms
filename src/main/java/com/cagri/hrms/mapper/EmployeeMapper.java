@@ -17,6 +17,7 @@ public interface EmployeeMapper {
     @Mapping(source = "phoneNumber", target = "phoneNumber")
     @Mapping(source = "address", target = "address")
     @Mapping(source = "birthDate", target = "birthDate")
+    @Mapping(source = "active", target = "isActive")
     EmployeeResponseDTO toDTO(Employee employee);
 
     @Mapping(target = "birthDate", source = "dto.birthDate")
@@ -29,7 +30,7 @@ public interface EmployeeMapper {
     @Mapping(target = "salary", source = "dto.salary")
     @Mapping(target = "annualLeave", source = "dto.annualLeave")
     @Mapping(target = "email", source = "dto.email") // NEW: maps manager input if available
-    @Mapping(target = "isActive", constant = "true")
+    @Mapping(target = "active", constant = "true")
     @Mapping(target = "createdAt", expression = "java(System.currentTimeMillis())")
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "user", ignore = true)

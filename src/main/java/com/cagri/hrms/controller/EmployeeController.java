@@ -80,12 +80,14 @@ public class EmployeeController {
 
     @PreAuthorize("hasRole('MANAGER')")
     @PatchMapping("/{id}/toggle-active")
-    public ResponseEntity<MessageResponseDTO> toggleEmployeeActiveStatus(@PathVariable Long id,
-                                                                         @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<EmployeeResponseDTO> toggleEmployeeActiveStatus(@PathVariable Long id,
+                                                                          @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getUserByEmail(userDetails.getUsername());
         UserValidator.assertCompanyApproved(user);
-        employeeService.toggleActiveStatus(id);
-        return ResponseEntity.ok(new MessageResponseDTO("Employee status updated."));
+
+        // Return updated employee info
+        EmployeeResponseDTO updatedEmployee = employeeService.toggleStatus(id);
+        return ResponseEntity.ok(updatedEmployee);
     }
 
     @PreAuthorize("hasRole('EMPLOYEE')")
