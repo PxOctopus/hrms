@@ -37,4 +37,12 @@ public interface LeaveService {
     List<LeaveResponseDTO> getLeavesWaitingForMyApproval();
 
     List<LeaveResponseDTO> getLeavesApprovedByManager();
+
+    // --- NEW METHODS ---
+
+    // Check if employee has overlapping leave for the requested date range
+    boolean hasOverlappingLeave(Long employeeId, LeaveRequestDTO dto);
+
+    // Check if employee has enough remaining annual leave days
+    boolean hasRemainingAnnualLeave(Long employeeId, LeaveRequestDTO dto);
 }

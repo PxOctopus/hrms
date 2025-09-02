@@ -23,4 +23,8 @@ public class LeaveDefinition {
     private Integer maxDays;      // max number of leave days allowed per year
 
     private boolean active;       // whether the leave type is currently available
+
+    // NEW
+    @Column(name = "is_annual", nullable = false)
+    private boolean isAnnual;     // true only for Annual Leave
 }
