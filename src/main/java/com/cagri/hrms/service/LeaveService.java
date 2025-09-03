@@ -1,10 +1,12 @@
 package com.cagri.hrms.service;
 
 import com.cagri.hrms.dto.request.employee.LeaveApprovalDTO;
+import com.cagri.hrms.dto.request.employee.LeaveCheckDTO;
 import com.cagri.hrms.dto.request.employee.LeaveRequestDTO;
 import com.cagri.hrms.dto.response.employee.LeaveResponseDTO;
 
 import java.util.List;
+import java.util.Map;
 
 public interface LeaveService {
 
@@ -38,11 +40,15 @@ public interface LeaveService {
 
     List<LeaveResponseDTO> getLeavesApprovedByManager();
 
-    // --- NEW METHODS ---
+//    // --- NEW METHODS ---
+//
+//    // Check if employee has overlapping leave for the requested date range
+//    boolean hasOverlappingLeave(Long employeeId, LeaveRequestDTO dto);
+//
+//    // Check if employee has enough remaining annual leave days
+//    boolean hasRemainingAnnualLeave(Long employeeId, LeaveRequestDTO dto);
 
-    // Check if employee has overlapping leave for the requested date range
-    boolean hasOverlappingLeave(Long employeeId, LeaveRequestDTO dto);
-
-    // Check if employee has enough remaining annual leave days
-    boolean hasRemainingAnnualLeave(Long employeeId, LeaveRequestDTO dto);
+    // Lightweight pre-checks used by live UI badges
+    boolean checkOverlap(LeaveCheckDTO dto);
+    Map<String,Object> checkAnnualQuota(LeaveCheckDTO dto); // {ok, remainingDays?}
 }

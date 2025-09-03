@@ -13,16 +13,14 @@ import java.util.List;
 
 public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
-    // Find all leaves of a given employee
+    // ----- Standard query methods -----
+
     List<Leave> findByEmployee(Employee employee);
 
-    // Find all leaves of an employee with specific status
     List<Leave> findByEmployeeAndStatus(Employee employee, LeaveStatus status);
 
-    // Find all leaves with a specific status (e.g., APPROVED, PENDING)
     List<Leave> findAllByStatus(LeaveStatus status);
 
-    // Find leaves by type (if needed for reports, limits, etc.)
     List<Leave> findByLeaveDefinition(LeaveDefinition definition);
 
     List<Leave> findAllByCreatedBy_Id(Long managerId);
@@ -31,11 +29,13 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     List<Leave> findByEmployee_Company_IdAndStatus(Long companyId, LeaveStatus status);
 
-    // --- NEW METHODS ---
 
-    // --- NATIVE QUERIES (PostgreSQL) ---
+    // ----- NEW: Native PostgreSQL queries for overlap and allowance -----
 
-    // Overlap check: a leave overlaps if (newStart <= existingEnd) AND (newEnd >= existingStart)
+    /**
+     * Overlap check (inclusive): a leave overlaps if (newStart <= existingEnd) AND (newEnd >= existingStart).
+     * Pass enum names as statuses, e.g. ["PENDING","APPROVED"].
+     */
     @Query(value = // language=PostgreSQL
             """
             SELECT EXISTS (
@@ -51,10 +51,34 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
     boolean existsOverlappingLeave(@Param("employeeId") Long employeeId,
                                    @Param("startDate") LocalDate startDate,
                                    @Param("endDate") LocalDate endDate,
-                                   // Pass enum names, e.g. ["PENDING","APPROVED"]
                                    @Param("statuses") List<String> statuses);
 
-    // Simple yearly usage: count inclusive days for leaves whose START date falls in :year
+    /**
+     * Overlap check excluding the given leave id. Use this during approval so the row does not collide with itself.
+     */
+    @Query(value = // language=PostgreSQL
+            """
+            SELECT EXISTS (
+              SELECT 1
+                FROM leaves l
+               WHERE l.employee_id = :employeeId
+                 AND l.id <> :leaveId
+                 AND l.status      IN (:statuses)
+                 AND l.start_date  <= :endDate
+                 AND l.end_date    >= :startDate
+            )
+            """,
+            nativeQuery = true)
+    boolean existsOverlappingLeaveExcept(@Param("employeeId") Long employeeId,
+                                         @Param("leaveId") Long leaveId,
+                                         @Param("startDate") LocalDate startDate,
+                                         @Param("endDate") LocalDate endDate,
+                                         @Param("statuses") List<String> statuses);
+
+    /**
+     * Simple yearly usage: counts inclusive days for leaves whose START date falls in :year.
+     * Useful for quick reports; for cross-year correctness prefer the window-based method below.
+     */
     @Query(value = // language=PostgreSQL
             """
             SELECT COALESCE(SUM((l.end_date - l.start_date) + 1), 0)
@@ -70,7 +94,10 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
                              @Param("statuses") List<String> statuses,
                              @Param("year") int year);
 
-    // Window-clipped usage: correctly handles cross-year spans by clipping to [windowStart, windowEnd]
+    /**
+     * Window-clipped usage: correctly sums days within [windowStart, windowEnd] (inclusive),
+     * handling cross-year spans by clipping to the window bounds.
+     */
     @Query(value = // language=PostgreSQL
             """
             SELECT COALESCE(SUM(
@@ -79,8 +106,8 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
               FROM leaves l
              WHERE l.employee_id = :employeeId
                AND l.leave_definition_id = :definitionId
-               AND l.status IN (:statuses)              -- pass enum names (e.g. ["PENDING","APPROVED"])
-               AND l.end_date   >= :windowStart         -- must overlap the window
+               AND l.status IN (:statuses)          -- pass enum names (e.g. ["PENDING","APPROVED"])
+               AND l.end_date   >= :windowStart     -- must overlap the window
                AND l.start_date <= :windowEnd
             """,
             nativeQuery = true)
