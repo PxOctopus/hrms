@@ -2,6 +2,7 @@ package com.cagri.hrms.service.impl;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.request.employee.EmployeeUpdateProfileRequestDTO;
+import com.cagri.hrms.dto.response.employee.EmployeeMeDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.employee.Employee;
@@ -16,10 +17,11 @@ import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.MailService;
 import com.cagri.hrms.util.PasswordUtil;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,6 +37,16 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Override
+    @Transactional(readOnly = true)
+    public EmployeeMeDTO getMine(User currentUser) {
+        boolean pending = employeeRepository.findByUserId(currentUser.getId())
+                .map(e -> Boolean.TRUE.equals(e.getIsPendingApprovalByManager()))
+                .orElse(true); // safe default: OR pending
+
+        return new EmployeeMeDTO(pending);
+    }
 
     @Override
     public EmployeeResponseDTO createEmployee(EmployeeCreateRequestDTO requestDTO, User authenticatedUser) {

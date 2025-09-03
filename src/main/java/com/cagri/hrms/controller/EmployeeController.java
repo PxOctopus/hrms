@@ -2,6 +2,7 @@ package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.request.employee.EmployeeUpdateProfileRequestDTO;
+import com.cagri.hrms.dto.response.employee.EmployeeMeDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.dto.response.general.MessageResponseDTO;
 import com.cagri.hrms.entity.core.User;
@@ -100,4 +101,11 @@ public class EmployeeController {
         EmployeeResponseDTO updated = employeeService.updateOwnProfile(currentUser.getId(), dto);
         return ResponseEntity.ok(updated);
     }
-}
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @GetMapping("/me")
+    public ResponseEntity<EmployeeMeDTO> me(@AuthenticationPrincipal UserDetails userDetails) {
+        User currentUser = userService.getUserByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(employeeService.getMine(currentUser));
+    }
+    }
