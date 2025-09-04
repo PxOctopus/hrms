@@ -1,10 +1,7 @@
 package com.cagri.hrms.entity.core;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Data
@@ -18,13 +15,17 @@ public class LeaveDefinition {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private String name;          // e.g. "Annual Leave", "Sick Leave"
 
-    private Integer maxDays;      // max number of leave days allowed per year
+    @Column(name = "max_days")    // NULL => unlimited
+    private Integer maxDays;
 
-    private boolean active;       // whether the leave type is currently available
+    @Column(name = "active", nullable = false)
+    @Builder.Default
+    private boolean active = true;
 
-    // NEW
     @Column(name = "is_annual", nullable = false)
-    private boolean isAnnual;     // true only for Annual Leave
+    @Builder.Default
+    private boolean isAnnual = false; // true only for Annual
 }

@@ -4,6 +4,7 @@ import com.cagri.hrms.dto.request.employee.LeaveApprovalDTO;
 import com.cagri.hrms.dto.request.employee.LeaveCheckDTO;
 import com.cagri.hrms.dto.request.employee.LeaveRequestDTO;
 import com.cagri.hrms.dto.response.employee.LeaveResponseDTO;
+import com.cagri.hrms.dto.response.employee.MyAllocationDTO;
 import com.cagri.hrms.service.LeaveService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -100,5 +101,12 @@ public class LeaveController {
     @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<List<LeaveResponseDTO>> getMyLeaves() {
         return ResponseEntity.ok(leaveService.getLeavesOfCurrentEmployee());
+    }
+
+    // ----  Allocations for employee (synthesized from Employee.annualLeave) ----
+    @GetMapping("/allocations/me")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<List<MyAllocationDTO>> myAllocations() {
+        return ResponseEntity.ok(leaveService.getMyAllocations());
     }
 }

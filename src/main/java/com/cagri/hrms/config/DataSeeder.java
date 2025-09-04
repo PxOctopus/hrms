@@ -14,15 +14,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.util.Objects;
 
 @Configuration
 @RequiredArgsConstructor
 public class DataSeeder {
 
     private final PasswordEncoder passwordEncoder;
-    private final LeaveDefinitionRepository leaveDefinitionRepository; // Added for seeding leave definitions
-
+    private final LeaveDefinitionRepository leaveDefinitionRepository;
 
     @Value("${admin.user.email}")
     private String adminEmail;
@@ -32,62 +31,56 @@ public class DataSeeder {
 
     @Bean
     public CommandLineRunner initDatabase(UserRepository userRepository,
-                                          RoleRepository roleRepository,
-                                          LeaveDefinitionRepository leaveDefinitionRepository) {
+                                          RoleRepository roleRepository) {
         return args -> {
-            // Create ADMIN role if it doesn't exist
+            // ---- Roles ----
             if (!roleRepository.existsByName("ADMIN")) {
-                Role adminRole = Role.builder().name("ADMIN").build();
-                roleRepository.save(adminRole);
+                roleRepository.save(Role.builder().name("ADMIN").build());
             }
-
-            // Create EMPLOYEE role if it doesn't exist
             if (!roleRepository.existsByName("EMPLOYEE")) {
-                Role employeeRole = Role.builder().name("EMPLOYEE").build();
-                roleRepository.save(employeeRole);
+                roleRepository.save(Role.builder().name("EMPLOYEE").build());
             }
-
-            // Create MANAGER role if it doesn't exist
             if (!roleRepository.existsByName("MANAGER")) {
-                Role managerRole = Role.builder().name("MANAGER").build();
-                roleRepository.save(managerRole);
+                roleRepository.save(Role.builder().name("MANAGER").build());
             }
 
-            // Create an admin user if not exists
+            // ---- Admin user ----
             if (!userRepository.existsByEmail(adminEmail))  {
                 Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-
                 User admin = User.builder()
                         .fullName("Site Admin")
-                        .email(adminEmail) // Retrieved from environment variable
-                        .password(passwordEncoder.encode(adminPassword)) // Retrieved from environment variable
+                        .email(adminEmail)
+                        .password(passwordEncoder.encode(adminPassword))
                         .role(adminRole)
                         .emailVerified(true)
                         .isActive(true)
                         .enabled(true)
                         .createdAt(LocalDate.now())
                         .build();
-
                 userRepository.save(admin);
             }
 
-            // Create default leave definitions if none exist
-            if (leaveDefinitionRepository.count() == 0) {
-                List<LeaveDefinition> definitions = List.of(
-                        LeaveDefinition.builder()
-                                .name("Annual Leave")
-                                .maxDays(20)
-                                .active(true)
-                                .build(),
-                        LeaveDefinition.builder()
-                                .name("Sick Leave")
-                                .maxDays(10)
-                                .active(true)
-                                .build()
-                );
 
-                leaveDefinitionRepository.saveAll(definitions);
-            }
+            upsertLeaveDef("Annual Leave", true,  null, true); // Annual: from allocation
+            upsertLeaveDef("Sick Leave",   false, null, true); // Sick: unlimited
         };
+    }
+
+    private void upsertLeaveDef(String name, boolean isAnnual, Integer maxDays, boolean active) {
+        LeaveDefinition def = leaveDefinitionRepository.findByNameIgnoreCase(name)
+                .orElseGet(() -> LeaveDefinition.builder().name(name).build());
+
+        boolean changed = false;
+
+        if (def.isAnnual() != isAnnual) { def.setAnnual(isAnnual); changed = true; }
+        if ((def.getMaxDays() == null && maxDays != null) ||
+                (def.getMaxDays() != null && !def.getMaxDays().equals(maxDays))) {
+            def.setMaxDays(maxDays); changed = true;
+        }
+        if (def.isActive() != active) { def.setActive(active); changed = true; }
+
+        if (def.getId() == null || changed) {
+            leaveDefinitionRepository.save(def);
+        }
     }
 }

@@ -4,6 +4,7 @@ import com.cagri.hrms.dto.request.employee.LeaveApprovalDTO;
 import com.cagri.hrms.dto.request.employee.LeaveCheckDTO;
 import com.cagri.hrms.dto.request.employee.LeaveRequestDTO;
 import com.cagri.hrms.dto.response.employee.LeaveResponseDTO;
+import com.cagri.hrms.dto.response.employee.MyAllocationDTO;
 import com.cagri.hrms.entity.core.LeaveDefinition;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.entity.employee.Employee;
@@ -39,9 +40,13 @@ public class LeaveServiceImpl implements LeaveService {
     private final AuthService authService;
     private final UserService userService;
 
-    // These statuses both block overlap and count towards annual quota (use enum names for native SQL)
+    /** These statuses block overlap and (for pre-checks) count as usage. */
     private static final List<String> BLOCKING_STATUSES =
             List.of(LeaveStatus.PENDING.name(), LeaveStatus.APPROVED.name());
+
+    /** For allocation/summary chips we usually show only APPROVED usage. */
+    private static final List<String> APPROVED_ONLY =
+            List.of(LeaveStatus.APPROVED.name());
 
     // ----------------------- small utilities -----------------------
 
@@ -68,50 +73,9 @@ public class LeaveServiceImpl implements LeaveService {
         return inclusiveDays(s, e);
     }
 
-    /** Prefer a real boolean property (isAnnual) if present; otherwise fallback to name check. */
+    /** Prefer the boolean column on entity. */
     private boolean isAnnual(LeaveDefinition def) {
-        try {
-            var m = def.getClass().getMethod("getIsAnnual");
-            Object v = m.invoke(def);
-            if (v instanceof Boolean b && b != null) return b;
-        } catch (Exception ignored) {}
-        String name = def.getName();
-        return name != null && name.toLowerCase().contains("annual");
-    }
-
-    /**
-     * Enforce annual allowance per calendar year window. If a request spans multiple years,
-     * validate each year separately by clipping to that year's [Jan 1, Dec 31].
-     */
-    private void enforceAnnualQuota(Long employeeId, LeaveDefinition def, LocalDate start, LocalDate end) {
-        if (!isAnnual(def)) return;
-
-        Integer max = def.getMaxDays();
-        int allowance = max != null ? max : 0;
-        if (allowance <= 0) {
-            throw new BusinessException("Annual leave allowance is not configured.");
-        }
-
-        for (int year = start.getYear(); year <= end.getYear(); year++) {
-            LocalDate winStart = LocalDate.of(year, 1, 1);
-            LocalDate winEnd   = LocalDate.of(year, 12, 31);
-
-            LocalDate a = start.isAfter(winStart) ? start : winStart;
-            LocalDate b = end.isBefore(winEnd)   ? end   : winEnd;
-            if (a.isAfter(b)) continue; // no overlap with this year
-
-            int requestedDaysInYear = inclusiveDays(a, b);
-
-            Integer used = leaveRepository.getUsedLeaveDaysInWindow(
-                    employeeId, def.getId(), BLOCKING_STATUSES, a, b);
-            int usedDays = used != null ? used : 0;
-
-            if (usedDays + requestedDaysInYear > allowance) {
-                int remaining = Math.max(0, allowance - usedDays);
-                throw new BusinessException("Annual leave quota exceeded for " + year +
-                        ". Remaining days: " + remaining);
-            }
-        }
+        return def != null && def.isAnnual();
     }
 
     // ----------------------- core flows -----------------------
@@ -164,8 +128,27 @@ public class LeaveServiceImpl implements LeaveService {
                 targetEmployee.getId(), start, end, BLOCKING_STATUSES);
         if (overlap) throw new BusinessException("Leave dates overlap with existing leave.");
 
-        // 2) Annual quota guard (applies to both EMPLOYEE requests and MANAGER assignments)
-        enforceAnnualQuota(targetEmployee.getId(), leaveDefinition, start, end);
+        // 2) Annual quota guard (source of truth = Employee.annualLeave).
+        if (isAnnual(leaveDefinition)) {
+            Integer allowance = targetEmployee.getAnnualLeave();
+            int totalDaysAllowed = allowance != null ? allowance : 0;
+            if (totalDaysAllowed <= 0) {
+                throw new BusinessException("No annual leave allocated by your manager.");
+            }
+
+            LocalDate ws = yearStart(start);
+            LocalDate we = yearEnd(start);
+
+            Integer used = leaveRepository.getUsedLeaveDaysInWindow(
+                    targetEmployee.getId(), leaveDefinition.getId(), BLOCKING_STATUSES, ws, we);
+            int already   = used != null ? used : 0;
+            int remaining = Math.max(0, totalDaysAllowed - already);
+            int requested = inclusiveDays(start, end);
+
+            if (requested > remaining) {
+                throw new BusinessException("Annual leave quota exceeded. Remaining days: " + remaining);
+            }
+        }
 
         // Persist
         Leave leave = leaveMapper.toEntity(dto);
@@ -187,7 +170,7 @@ public class LeaveServiceImpl implements LeaveService {
 
     /**
      * Approve or reject a leave request.
-     * - On approval, re-validate overlap (excluding itself) and annual quota.
+     * - On approval, re-validate overlap (excluding itself) and annual quota (Employee.annualLeave-based).
      */
     @Transactional
     @Override
@@ -219,29 +202,32 @@ public class LeaveServiceImpl implements LeaveService {
                 throw new BusinessException("Leave dates overlap with existing leave.");
             }
 
-            // Annual quota check (exclude current PENDING slice from 'used' by subtracting its clipped days)
+            // Annual quota check against Employee.annualLeave, excluding current PENDING slice from 'used'
             LeaveDefinition def = leave.getLeaveDefinition();
             if (def != null && isAnnual(def)) {
                 LocalDate start = leave.getStartDate();
                 LocalDate end   = leave.getEndDate();
 
+                Integer allowance = leave.getEmployee().getAnnualLeave();
+                int totalDaysAllowed = allowance != null ? allowance : 0;
+                if (totalDaysAllowed <= 0) {
+                    throw new BusinessException("No annual leave allocated for this employee.");
+                }
+
                 LocalDate ws = yearStart(start);
                 LocalDate we = yearEnd(start);
 
                 Integer used = leaveRepository.getUsedLeaveDaysInWindow(
-                        leave.getEmployee().getId(), def.getId(), BLOCKING_STATUSES, ws, we
-                );
+                        leave.getEmployee().getId(), def.getId(), BLOCKING_STATUSES, ws, we);
                 int usedTotal = used != null ? used : 0;
 
-                // Current leave (PENDING) is likely included in usedTotal; subtract its clipped portion.
                 int currentClipped = clippedInclusiveDays(start, end, ws, we);
-                int usedExcludingCurrent = leave.getStatus() == LeaveStatus.PENDING
+                int usedExclCurrent = leave.getStatus() == LeaveStatus.PENDING
                         ? Math.max(0, usedTotal - currentClipped)
                         : usedTotal;
 
-                int allowance = def.getMaxDays() != null ? def.getMaxDays() : 0;
-                if (usedExcludingCurrent + currentClipped > allowance) {
-                    int remaining = Math.max(0, allowance - usedExcludingCurrent);
+                if (usedExclCurrent + currentClipped > totalDaysAllowed) {
+                    int remaining = Math.max(0, totalDaysAllowed - usedExclCurrent);
                     throw new BusinessException("Annual leave quota exceeded. Remaining days: " + remaining);
                 }
             }
@@ -262,6 +248,7 @@ public class LeaveServiceImpl implements LeaveService {
     // ----------------------- queries -----------------------
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getAllLeaves() {
         return leaveRepository.findAll().stream()
                 .map(leaveMapper::toDto)
@@ -269,6 +256,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getLeavesByEmployeeId(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new BusinessException("Employee not found"));
@@ -278,6 +266,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getLeavesOfCurrentEmployee() {
         User currentUser = SecurityUtil.getCurrentUser();
         Employee employee = employeeRepository.findByUser(currentUser)
@@ -288,6 +277,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getApprovedLeaves() {
         return leaveRepository.findAllByStatus(LeaveStatus.APPROVED).stream()
                 .map(leaveMapper::toDto)
@@ -295,6 +285,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getPendingLeaves() {
         return leaveRepository.findAllByStatus(LeaveStatus.PENDING).stream()
                 .map(leaveMapper::toDto)
@@ -302,6 +293,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getRejectedLeaves() {
         return leaveRepository.findAllByStatus(LeaveStatus.REJECTED).stream()
                 .map(leaveMapper::toDto)
@@ -309,6 +301,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getLeavesAssignedByManager() {
         User currentManager = authService.getCurrentUser();
         List<Leave> leaves = leaveRepository.findAllByCreatedBy_Id(currentManager.getId());
@@ -316,6 +309,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getLeavesWaitingForMyApproval() {
         User currentUser = userService.getCurrentUser();
         Long companyId = currentUser.getCompany().getId();
@@ -325,6 +319,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LeaveResponseDTO> getLeavesApprovedByManager() {
         User currentManager = authService.getCurrentUser();
         List<Leave> approvedLeaves =
@@ -332,8 +327,10 @@ public class LeaveServiceImpl implements LeaveService {
         return approvedLeaves.stream().map(leaveMapper::toDto).toList();
     }
 
+    // ----------------------- live pre-checks -----------------------
 
     @Override
+    @Transactional(readOnly = true)
     public boolean checkOverlap(LeaveCheckDTO dto) {
         // Resolve employee id (manager assigns vs employee self)
         Long employeeId = dto.getEmployeeId() != null ? dto.getEmployeeId()
@@ -350,11 +347,12 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Map<String, Object> checkAnnualQuota(LeaveCheckDTO dto) {
         var def = leaveDefinitionRepository.findById(dto.getLeaveDefinitionId())
                 .orElseThrow(() -> new RuntimeException("Leave definition not found"));
 
-        // Non-annual types always OK
+        // Non-annual types always OK (e.g., Sick)
         if (!isAnnual(def)) return Map.of("ok", true);
 
         Long employeeId = dto.getEmployeeId() != null ? dto.getEmployeeId()
@@ -362,23 +360,61 @@ public class LeaveServiceImpl implements LeaveService {
                 .orElseThrow(() -> new RuntimeException("Employee not found"))
                 .getId();
 
+        var emp = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        Integer allowance = emp.getAnnualLeave();
+        int totalDaysAllowed = allowance != null ? allowance : 0;
+        if (totalDaysAllowed <= 0) {
+            return Map.of("ok", false, "remainingDays", 0);
+        }
+
         var start = dto.getStartDate();
         var end   = dto.getEndDate();
         var ws = yearStart(start);
         var we = yearEnd(start);
 
         Integer used = leaveRepository.getUsedLeaveDaysInWindow(
-                employeeId, def.getId(), BLOCKING_STATUSES, ws, we
-        );
+                employeeId, def.getId(), BLOCKING_STATUSES, ws, we);
         int already   = used != null ? used : 0;
+        int remaining = Math.max(0, totalDaysAllowed - already);
         int requested = inclusiveDays(start, end);
-        int allowance = def.getMaxDays() != null ? def.getMaxDays() : 0;
 
-        boolean ok = already + requested <= allowance;
-        int remaining = Math.max(0, allowance - already);
+        boolean ok = requested <= remaining;
+        return Map.of("ok", ok, "remainingDays", remaining);
+    }
 
-        return ok
-                ? Map.of("ok", true,  "remainingDays", remaining)
-                : Map.of("ok", false, "remainingDays", remaining);
+    // ----------------------- allocations (for FE) -----------------------
+
+    /**
+     * Synthesized “allocation” summary for FE from Employee.annualLeave.
+     * Returns at most one row (Annual Leave) with totalDays & usedDays.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<MyAllocationDTO> getMyAllocations() {
+        var user = SecurityUtil.getCurrentUser();
+        var emp = employeeRepository.findByUser(user)
+                .orElseThrow(() -> new BusinessException("Employee not found"));
+
+        // Find the Annual Leave definition (name-based; if you add findFirstByIsAnnualTrue(), prefer that)
+        var annualDef = leaveDefinitionRepository.findByNameIgnoreCase("Annual Leave")
+                .orElse(null);
+        if (annualDef == null) {
+            return List.of(); // no annual definition in the system
+        }
+
+        Integer allowance = emp.getAnnualLeave();
+        int totalDaysAllowed = allowance != null ? allowance : 0;
+
+        int year = LocalDate.now().getYear();
+        LocalDate ws = LocalDate.of(year, 1, 1);
+        LocalDate we = LocalDate.of(year, 12, 31);
+
+        Integer used = leaveRepository.getUsedLeaveDaysInWindow(
+                emp.getId(), annualDef.getId(), APPROVED_ONLY, ws, we);
+        int usedDays = used != null ? used : 0;
+
+        return List.of(new MyAllocationDTO(annualDef.getId(), totalDaysAllowed, usedDays));
     }
 }
