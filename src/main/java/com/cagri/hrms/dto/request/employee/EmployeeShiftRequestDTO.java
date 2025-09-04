@@ -1,13 +1,28 @@
 package com.cagri.hrms.dto.request.employee;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
 
+/**
+ * Write model for assigning a Shift to an Employee on a single date.
+ * Range assignment should be handled by the client or a dedicated bulk endpoint.
+ */
 @Data
 public class EmployeeShiftRequestDTO {
-    private Long employeeId;      // ID of the employee to assign the shift to
-    private Long shiftId;         // ID of the shift definition
-    private LocalDate shiftDate;  // Date for the shift assignment
+
+    @NotNull
+    private Long employeeId;   // target employee
+
+    @NotNull
+    private Long shiftId;      // chosen shift definition
+
+    @NotNull
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate shiftDate; // specific calendar day
+
+    // soft delete / status flag; defaults can be applied in service layer
     private Boolean active;
 }

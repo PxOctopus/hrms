@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Shift definitions controller (name + daily time window).
+ * Company scope always derives from the authenticated user.
+ */
 @RestController
 @RequestMapping("/api/shifts")
 @RequiredArgsConstructor
@@ -23,7 +27,7 @@ public class ShiftController {
     private final ShiftService shiftService;
     private final UserService userService;
 
-    // Only MANAGER can create a shift
+    /** Managers only: create a shift for their own company (DTO.companyId is ignored). */
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping
     public ResponseEntity<ShiftResponseDTO> createShift(
@@ -34,7 +38,7 @@ public class ShiftController {
         return ResponseEntity.ok(shiftService.createShift(dto, currentUser));
     }
 
-    // Only MANAGER can update a shift
+    /** Managers only: update a shift that belongs to their company. */
     @PreAuthorize("hasRole('MANAGER')")
     @PutMapping("/{id}")
     public ResponseEntity<ShiftResponseDTO> updateShift(
@@ -46,7 +50,7 @@ public class ShiftController {
         return ResponseEntity.ok(shiftService.updateShift(id, dto, currentUser));
     }
 
-    // Only MANAGER can delete a shift
+    /** Managers only: delete a shift that belongs to their company. */
     @PreAuthorize("hasRole('MANAGER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteShift(
@@ -58,28 +62,7 @@ public class ShiftController {
         return ResponseEntity.noContent().build();
     }
 
-    // Get all shifts for a company
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping("/company/{companyId}")
-    public ResponseEntity<List<ShiftResponseDTO>> getShiftsByCompanyId(
-            @PathVariable Long companyId,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(shiftService.getShiftsByCompanyId(companyId, currentUser));
-    }
-
-    // Get all shifts
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping
-    public ResponseEntity<List<ShiftResponseDTO>> getAllShifts(
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(shiftService.getAllShifts(currentUser));
-    }
-
-    // Get a shift by ID
+    /** Authenticated users: read single shift (must belong to same company). */
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/{id}")
     public ResponseEntity<ShiftResponseDTO> getShiftById(
@@ -89,5 +72,14 @@ public class ShiftController {
         User currentUser = userService.getUserByEmail(userDetails.getUsername());
         return ResponseEntity.ok(shiftService.getShiftById(id, currentUser));
     }
-}
 
+    /** Authenticated users: list all shifts of the current user's company. */
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping
+    public ResponseEntity<List<ShiftResponseDTO>> getMyCompanyShifts(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User currentUser = userService.getUserByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(shiftService.getMyCompanyShifts(currentUser));
+    }
+}

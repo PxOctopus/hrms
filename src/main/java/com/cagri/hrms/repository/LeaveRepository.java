@@ -116,4 +116,24 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
                                      @Param("statuses") List<String> statuses,
                                      @Param("windowStart") LocalDate windowStart,
                                      @Param("windowEnd") LocalDate windowEnd);
+
+
+    // =========================
+    // NEW: Assignment guard helper
+    // =========================
+
+    /**
+     * NEW: Check if the employee has an APPROVED leave that covers the target date (inclusive).
+     * This is used by the shift-assignment service to block assignments on leave days.
+     * (JPQL version; portable across databases.)
+     */
+    @Query("""
+      select (count(l) > 0) from Leave l
+      where l.employee.id = :employeeId
+        and l.status = :status
+        and :date between l.startDate and l.endDate
+    """)
+    boolean existsApprovedOn(@Param("employeeId") Long employeeId,
+                             @Param("date") LocalDate date,
+                             @Param("status") LeaveStatus status);
 }

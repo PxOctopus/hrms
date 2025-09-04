@@ -10,6 +10,7 @@ public enum ErrorType {
     BUSINESS_ERROR(HttpStatus.UNPROCESSABLE_ENTITY, "BUSINESS_ERROR", "Business rule violation"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Unexpected server error");
 
+
     private final HttpStatus status;
     private final String code;
     private final String message;

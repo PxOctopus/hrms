@@ -1,32 +1,64 @@
 package com.cagri.hrms.exception;
 
-import org.springframework.http.ResponseEntity;
 import com.cagri.hrms.dto.response.general.ErrorResponseDTO;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Handles all custom HRMS exceptions
+    // Handles all custom HrmsException instances with their specific ErrorType
     @ExceptionHandler(HrmsException.class)
     public ResponseEntity<ErrorResponseDTO> handleHrmsException(HrmsException ex) {
-        ErrorType errorType = ex.getErrorType();
-        ErrorResponseDTO response = new ErrorResponseDTO(
-                errorType.getCode(),
-                errorType.getMessage()
-        );
-        return new ResponseEntity<>(response, errorType.getStatus());
+        ErrorType t = ex.getErrorType();
+        return new ResponseEntity<>(new ErrorResponseDTO(t.getCode(), ex.getMessage()), t.getStatus());
     }
 
-    // Handles all uncaught/unexpected exceptions
+    // Handles Spring Security access denied exceptions (403)
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDTO> handleDenied(AccessDeniedException ex) {
+        var t = ErrorType.AUTHORIZATION_ERROR;
+        return new ResponseEntity<>(new ErrorResponseDTO(t.getCode(), ex.getMessage()), t.getStatus());
+    }
+
+    // Handles JPA EntityNotFoundException (404) if thrown directly
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleEntityNotFound(EntityNotFoundException ex) {
+        var t = ErrorType.RESOURCE_NOT_FOUND;
+        return new ResponseEntity<>(new ErrorResponseDTO(t.getCode(), ex.getMessage()), t.getStatus());
+    }
+
+    // Handles @Valid field validation errors (400)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponseDTO> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
+        var t = ErrorType.VALIDATION_ERROR;
+        String msg = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + ": " + e.getDefaultMessage())
+                .collect(Collectors.joining("; "));
+        return new ResponseEntity<>(new ErrorResponseDTO(t.getCode(), msg), t.getStatus());
+    }
+
+    // Handles @Validated parameter constraint violations (400)
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponseDTO> handleConstraintViolation(ConstraintViolationException ex) {
+        var t = ErrorType.VALIDATION_ERROR;
+        String msg = ex.getConstraintViolations().stream()
+                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                .collect(Collectors.joining("; "));
+        return new ResponseEntity<>(new ErrorResponseDTO(t.getCode(), msg), t.getStatus());
+    }
+
+    // Handles any other unexpected exceptions (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleGenericException(Exception ex) {
-        ErrorType errorType = ErrorType.INTERNAL_ERROR;
-        ErrorResponseDTO response = new ErrorResponseDTO(
-                errorType.getCode(),
-                errorType.getMessage()
-        );
-        return new ResponseEntity<>(response, errorType.getStatus());
+        var t = ErrorType.INTERNAL_ERROR;
+        return new ResponseEntity<>(new ErrorResponseDTO(t.getCode(), t.getMessage()), t.getStatus());
     }
 }

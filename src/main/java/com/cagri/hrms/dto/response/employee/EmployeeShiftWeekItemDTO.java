@@ -1,25 +1,29 @@
 package com.cagri.hrms.dto.response.employee;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
- * Read model for Shift definition (name + daily time window).
+ * Lightweight projection used by weekly range endpoints.
+ * Contains denormalized shift times to avoid N+1 on the client.
  */
 @Data
-public class ShiftResponseDTO {
+@AllArgsConstructor
+public class EmployeeShiftWeekItemDTO {
     private Long id;
+    private Long shiftId;
     private String shiftName;
 
-    // Force HH:mm on the wire to match frontend expectations
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate shiftDate;
+
     @JsonFormat(pattern = "HH:mm")
     private LocalTime startTime;
 
     @JsonFormat(pattern = "HH:mm")
     private LocalTime endTime;
-
-    // Expose companyId so the client can render/filter if needed
-    private Long companyId;
 }
