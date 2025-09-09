@@ -43,22 +43,16 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
 
     // ---------- CREATE ----------
 
-    /**
-     * Assign a single-day shift to an employee.
-     * Overnight is supported: if shift.endTime <= shift.startTime, we still create ONE record for D,
-     * but we also check APPROVED leave on D+1 to prevent overlap with the next day.
-     */
     @Override
     @Transactional
     public EmployeeShiftResponseDTO assignEmployeeShift(EmployeeShiftRequestDTO dto, User currentUser) {
-        // Role guard: managers only
         if (!isManager(currentUser)) {
             throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Only managers can assign shifts.");
         }
 
         final Long companyId = currentUser.getCompany().getId();
 
-        // Company guard — quick existence checks before loading entities
+        // Company guards for employee and shift
         if (!employeeRepository.existsByIdAndCompany_Id(dto.getEmployeeId(), companyId)) {
             throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Employee does not belong to your company.");
         }
@@ -66,13 +60,13 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Shift does not belong to your company.");
         }
 
-        // Load aggregates (with user/company prefetched for mapper/readability)
         Employee employee = employeeRepository.findByIdWithUserAndCompany(dto.getEmployeeId())
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found"));
+
         Shift shift = shiftRepository.findById(dto.getShiftId())
                 .orElseThrow(() -> new EntityNotFoundException("Shift not found"));
 
-        // Eligibility checks (mirror of /employees/assignable filters)
+        // Eligibility
         if (!employee.isActive()
                 || Boolean.TRUE.equals(employee.getIsPendingApprovalByManager())
                 || employee.getUser() == null
@@ -88,7 +82,7 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee is on approved leave for " + date);
         }
 
-        // Overnight detection: end <= start means it spills to next calendar day
+        // Overnight guard for D+1 if needed
         boolean overnight = !shift.getEndTime().isAfter(shift.getStartTime());
         if (overnight) {
             LocalDate nextDay = date.plusDays(1);
@@ -97,25 +91,34 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             }
         }
 
-        // Duplicate guard (one assignment per employee per date)
-        employeeShiftRepository.findByEmployee_IdAndShiftDate(employee.getId(), date).ifPresent(es -> {
-            throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee already has a shift on " + date);
-        });
+        // Duplicate guard with soft delete:
+        // 1) If an ACTIVE row exists -> error.
+        // 2) Else if an INACTIVE row exists for the same (employee, date) -> REACTIVATE it and update shift.
+        // 3) Else create new.
+        var existingAny = employeeShiftRepository.findByEmployee_IdAndShiftDate(employee.getId(), date);
 
+        if (existingAny.isPresent()) {
+            EmployeeShift existing = existingAny.get();
+            if (existing.isActive()) {
+                throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee already has a shift on " + date);
+            }
+            // Reactivate the existing soft-deleted row instead of inserting a new one
+            existing.setShift(shift);
+            existing.setActive(true);
+            // If you want to reset breaks when reactivating, clear the collection here.
+            // existing.getBreaks().clear();
+            return employeeShiftMapper.toDto(employeeShiftRepository.save(existing));
+        }
+
+        // No row exists at all -> create new
         EmployeeShift entity = employeeShiftMapper.toEntity(dto, employee, shift);
         entity.setShiftDate(date);
-        entity.setActive(dto.getActive() == null || dto.getActive());
-
+        entity.setActive(true);
         return employeeShiftMapper.toDto(employeeShiftRepository.save(entity));
     }
 
     // ---------- UPDATE ----------
 
-    /**
-     * Update an existing single-day assignment. All guards from create() apply.
-     * If employee or date changes, duplicate guard re-checked.
-     * Overnight leave guard is recalculated against the (possibly) new date/shift.
-     */
     @Override
     @Transactional
     public EmployeeShiftResponseDTO updateEmployeeShift(Long id, EmployeeShiftRequestDTO dto, User currentUser) {
@@ -127,12 +130,11 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
                 .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "EmployeeShift not found"));
 
         Long companyId = currentUser.getCompany().getId();
-        Long assignmentCompanyId = employeeShift.getEmployee().getCompany().getId();
-        if (!companyId.equals(assignmentCompanyId)) {
+        if (!companyId.equals(employeeShift.getEmployee().getCompany().getId())) {
             throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Cannot update another company's shift assignment.");
         }
 
-        // Possibly change employee (company guard)
+        // Change employee if needed (with company + eligibility guard)
         if (!employeeShift.getEmployee().getId().equals(dto.getEmployeeId())) {
             if (!employeeRepository.existsByIdAndCompany_Id(dto.getEmployeeId(), companyId)) {
                 throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Employee does not belong to your company.");
@@ -140,7 +142,6 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             Employee newEmployee = employeeRepository.findByIdWithUserAndCompany(dto.getEmployeeId())
                     .orElseThrow(() -> new EntityNotFoundException("Employee not found"));
 
-            // Eligibility checks (same as in assign)
             if (!newEmployee.isActive()
                     || Boolean.TRUE.equals(newEmployee.getIsPendingApprovalByManager())
                     || newEmployee.getUser() == null
@@ -148,11 +149,10 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
                     || !Boolean.TRUE.equals(newEmployee.getUser().getEmailVerified())) {
                 throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee is not eligible for assignment.");
             }
-
             employeeShift.setEmployee(newEmployee);
         }
 
-        // Possibly change shift (company guard)
+        // Change shift if needed (company guard)
         if (!employeeShift.getShift().getId().equals(dto.getShiftId())) {
             if (!shiftRepository.existsByIdAndCompany_Id(dto.getShiftId(), companyId)) {
                 throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Shift does not belong to your company.");
@@ -162,19 +162,21 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             employeeShift.setShift(newShift);
         }
 
-        // Check duplicate if date (or employee) changed
         LocalDate newDate = dto.getShiftDate();
+
+        // Duplicate guard on change of (employee or date)
         if (!employeeShift.getShiftDate().equals(newDate)
                 || !employeeShift.getEmployee().getId().equals(dto.getEmployeeId())) {
             employeeShiftRepository.findByEmployee_IdAndShiftDate(dto.getEmployeeId(), newDate).ifPresent(es -> {
-                if (!es.getId().equals(id)) {
+                // Block only if the found row is ACTIVE and not the same id
+                if (es.isActive() && !es.getId().equals(id)) {
                     throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee already has a shift on " + newDate);
                 }
             });
         }
 
-        // Leave guard (for D and D+1 if overnight)
-        Shift effectiveShift = employeeShift.getShift(); // might be changed above
+        // Leave guard for D (and D+1 if overnight)
+        Shift effectiveShift = employeeShift.getShift();
         boolean overnight = !effectiveShift.getEndTime().isAfter(effectiveShift.getStartTime());
 
         if (leaveRepository.existsApprovedOn(employeeShift.getEmployee().getId(), newDate, LeaveStatus.APPROVED)) {
@@ -188,7 +190,12 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
         }
 
         employeeShift.setShiftDate(newDate);
-        employeeShift.setActive(dto.getActive() == null ? employeeShift.isActive() : dto.getActive());
+
+        // Allow toggling active from update only if you want admin-like behavior.
+        // Usually we keep active=true here and handle deletions via delete().
+        if (dto.getActive() != null) {
+            employeeShift.setActive(dto.getActive());
+        }
 
         return employeeShiftMapper.toDto(employeeShiftRepository.save(employeeShift));
     }
@@ -208,9 +215,11 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Cannot delete another company's shift assignment.");
         }
 
-        // Soft delete (keep history)
-        employeeShift.setActive(false);
-        employeeShiftRepository.save(employeeShift);
+        // Use repository.delete to trigger @SQLDelete (sets active=false)
+        employeeShiftRepository.delete(employeeShift);
+
+        // If you also want to soft-delete related breaks, consider adding a soft flag to Break
+        // and handling it via application logic. Cascade will not fire @SQLDelete on children automatically.
     }
 
     // ---------- READ ----------
@@ -244,8 +253,10 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Not authorized to view these shift assignments.");
         }
 
+        // If you want only active here, switch to a query that filters es.active = true.
         return employeeShiftRepository.findAllByEmployee_Id(employeeId)
                 .stream()
+                .filter(EmployeeShift::isActive) // keep UI clean by default
                 .map(employeeShiftMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -255,12 +266,11 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
     @Override
     @Transactional(readOnly = true)
     public List<EmployeeShiftWeekItemDTO> getEmployeeShiftsInRange(Long employeeId, LocalDate from, LocalDate to, User currentUser) {
-        // Company guard
         if (!employeeRepository.existsByIdAndCompany_Id(employeeId, currentUser.getCompany().getId())) {
             throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Employee does not belong to your company.");
         }
-        // Use company-scoped fetch-join query to reduce leakage risk and avoid N+1
-        return employeeShiftRepository.findActiveByEmployeeAndRangeInCompany(employeeId, currentUser.getCompany().getId(), from, to)
+        return employeeShiftRepository
+                .findActiveByEmployeeAndRangeInCompany(employeeId, currentUser.getCompany().getId(), from, to)
                 .stream()
                 .map(es -> new EmployeeShiftWeekItemDTO(
                         es.getId(),

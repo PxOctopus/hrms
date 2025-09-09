@@ -10,27 +10,21 @@ import java.util.Optional;
 
 /**
  * Repository for dated employee shift assignments.
- * Includes helpers for:
- *  - duplicate guard (same employee + same day)
- *  - weekly/range listing with FETCH JOIN to avoid N+1 on shift times
- *  - (optional) company-scoped range listing
+ * We do NOT use @Where on the entity, so add "active = true" in queries where needed.
  */
 public interface EmployeeShiftRepository extends JpaRepository<EmployeeShift, Long> {
 
-    /** Find all assignments for an employee (rarely used directly; prefer ranged methods). */
+    // This returns both active and inactive since we did not put @Where on the entity.
     List<EmployeeShift> findAllByEmployee_Id(Long employeeId);
 
-    /** Find all assignments that reference a given shift definition. */
+    // Same here; both active and inactive.
     List<EmployeeShift> findAllByShift_Id(Long shiftId);
 
-    /** Duplicate guard: prevent multiple assignments on the same date for the same employee. */
+    // Duplicate check finder that sees ANY row (active or inactive).
+    // Service will enforce the correct behavior (error if another ACTIVE row exists, or reactivate if only inactive).
     Optional<EmployeeShift> findByEmployee_IdAndShiftDate(Long employeeId, LocalDate shiftDate);
 
-    /**
-     * Weekly / ranged listing with shift eagerly loaded to expose start/end times.
-     * NOTE: This method is not company-scoped; enforce company checks in the service layer,
-     * or use the company-scoped variant below.
-     */
+    // Range listing for UI and 40h chip — only ACTIVE rows
     @Query("""
         select es
         from EmployeeShift es
@@ -42,10 +36,7 @@ public interface EmployeeShiftRepository extends JpaRepository<EmployeeShift, Lo
     """)
     List<EmployeeShift> findActiveByEmployeeAndDateRange(Long employeeId, LocalDate from, LocalDate to);
 
-    /**
-     * Company-scoped variant to further reduce data-leak risks at the query level.
-     * Use this if you want an extra defense-in-depth in addition to service-layer checks.
-     */
+    // Company-scoped variant — only ACTIVE rows
     @Query("""
         select es
         from EmployeeShift es
