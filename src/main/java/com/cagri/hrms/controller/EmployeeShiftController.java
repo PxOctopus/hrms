@@ -4,6 +4,10 @@ import com.cagri.hrms.dto.request.employee.EmployeeShiftRequestDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeShiftResponseDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeShiftWeekItemDTO;
 import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.exception.ErrorType;
+import com.cagri.hrms.exception.HrmsException;
+import com.cagri.hrms.repository.EmployeeRepository;
+import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.EmployeeShiftService;
 import com.cagri.hrms.service.UserService;
 import jakarta.validation.Valid;
@@ -28,6 +32,10 @@ public class EmployeeShiftController {
 
     private final EmployeeShiftService employeeShiftService;
     private final UserService userService;
+    // TODO: Refactor -> move employeeRepository usage into EmployeeService
+    private final EmployeeRepository employeeRepository;
+
+
 
     /** Managers only: create a single-day assignment for an employee. */
     @PreAuthorize("hasRole('MANAGER')")
@@ -98,6 +106,22 @@ public class EmployeeShiftController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         User currentUser = userService.getUserByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(employeeShiftService.getEmployeeShiftsInRange(employeeId, from, to, currentUser));
+    }
+
+    // Employee only (self): list active assignments within [from, to] inclusive.
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @GetMapping("/mine/range")
+    public ResponseEntity<List<EmployeeShiftWeekItemDTO>> listMyShiftsInRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User currentUser = userService.getUserByEmail(userDetails.getUsername());
+        // resolve employeeId from current user
+        Long employeeId = employeeRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found for current user"))
+                .getId();
         return ResponseEntity.ok(employeeShiftService.getEmployeeShiftsInRange(employeeId, from, to, currentUser));
     }
 }

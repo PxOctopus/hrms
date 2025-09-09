@@ -1,6 +1,7 @@
 package com.cagri.hrms.entity.employee;
 
 import com.cagri.hrms.entity.core.Company;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,9 +31,10 @@ public class Shift {
     private LocalTime endTime;
 
     @ManyToOne
-    @JoinColumn(name = "company_id")
+    @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
     @OneToMany(mappedBy = "shift", cascade = CascadeType.ALL)
+    @JsonIgnore // prevent accidental recursion if entity ever leaks
     private List<EmployeeShift> employeeShifts;
 }

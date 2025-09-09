@@ -67,10 +67,19 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
         }
 
         // Load aggregates (with user/company prefetched for mapper/readability)
-        Employee employee = employeeRepository.findWithUserAndCompanyById(dto.getEmployeeId())
+        Employee employee = employeeRepository.findByIdWithUserAndCompany(dto.getEmployeeId())
                 .orElseThrow(() -> new EntityNotFoundException("Employee not found"));
         Shift shift = shiftRepository.findById(dto.getShiftId())
                 .orElseThrow(() -> new EntityNotFoundException("Shift not found"));
+
+        // Eligibility checks (mirror of /employees/assignable filters)
+        if (!employee.isActive()
+                || Boolean.TRUE.equals(employee.getIsPendingApprovalByManager())
+                || employee.getUser() == null
+                || !employee.getUser().isEnabled()
+                || !Boolean.TRUE.equals(employee.getUser().getEmailVerified())) {
+            throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee is not eligible for assignment.");
+        }
 
         LocalDate date = dto.getShiftDate();
 
@@ -128,8 +137,18 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
             if (!employeeRepository.existsByIdAndCompany_Id(dto.getEmployeeId(), companyId)) {
                 throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Employee does not belong to your company.");
             }
-            Employee newEmployee = employeeRepository.findWithUserAndCompanyById(dto.getEmployeeId())
+            Employee newEmployee = employeeRepository.findByIdWithUserAndCompany(dto.getEmployeeId())
                     .orElseThrow(() -> new EntityNotFoundException("Employee not found"));
+
+            // Eligibility checks (same as in assign)
+            if (!newEmployee.isActive()
+                    || Boolean.TRUE.equals(newEmployee.getIsPendingApprovalByManager())
+                    || newEmployee.getUser() == null
+                    || !newEmployee.getUser().isEnabled()
+                    || !Boolean.TRUE.equals(newEmployee.getUser().getEmailVerified())) {
+                throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee is not eligible for assignment.");
+            }
+
             employeeShift.setEmployee(newEmployee);
         }
 
@@ -145,8 +164,8 @@ public class EmployeeShiftServiceImpl implements EmployeeShiftService {
 
         // Check duplicate if date (or employee) changed
         LocalDate newDate = dto.getShiftDate();
-        if (!employeeShift.getShiftDate().equals(newDate) ||
-                !employeeShift.getEmployee().getId().equals(dto.getEmployeeId())) {
+        if (!employeeShift.getShiftDate().equals(newDate)
+                || !employeeShift.getEmployee().getId().equals(dto.getEmployeeId())) {
             employeeShiftRepository.findByEmployee_IdAndShiftDate(dto.getEmployeeId(), newDate).ifPresent(es -> {
                 if (!es.getId().equals(id)) {
                     throw new HrmsException(ErrorType.BUSINESS_ERROR, "Employee already has a shift on " + newDate);

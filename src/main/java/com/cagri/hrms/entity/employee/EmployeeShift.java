@@ -11,7 +11,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "employee_shifts")
+@Table(
+        name = "employee_shifts",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_emp_date", columnNames = {"employee_id", "shift_date"})
+        }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

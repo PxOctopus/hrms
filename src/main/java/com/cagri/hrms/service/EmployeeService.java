@@ -2,6 +2,7 @@ package com.cagri.hrms.service;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.request.employee.EmployeeUpdateProfileRequestDTO;
+import com.cagri.hrms.dto.response.employee.EmployeeLiteDTO; // ⬅️ EKLENDİ
 import com.cagri.hrms.dto.response.employee.EmployeeMeDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.core.User;
@@ -32,4 +33,6 @@ public interface EmployeeService {
 
     EmployeeMeDTO getMine(User currentUser);
 
+    // NEW
+    List<EmployeeLiteDTO> getAssignableEmployees(Long companyId);
 }

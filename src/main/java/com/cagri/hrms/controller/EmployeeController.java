@@ -2,9 +2,9 @@ package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.employee.EmployeeCreateRequestDTO;
 import com.cagri.hrms.dto.request.employee.EmployeeUpdateProfileRequestDTO;
+import com.cagri.hrms.dto.response.employee.EmployeeLiteDTO; // ⬅️ EKLENDİ
 import com.cagri.hrms.dto.response.employee.EmployeeMeDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
-import com.cagri.hrms.dto.response.general.MessageResponseDTO;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.UserService;
@@ -85,10 +85,7 @@ public class EmployeeController {
                                                                           @AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.getUserByEmail(userDetails.getUsername());
         UserValidator.assertCompanyApproved(user);
-
-        // Return updated employee info
-        EmployeeResponseDTO updatedEmployee = employeeService.toggleStatus(id);
-        return ResponseEntity.ok(updatedEmployee);
+        return ResponseEntity.ok(employeeService.toggleStatus(id));
     }
 
     @PreAuthorize("hasRole('EMPLOYEE')")
@@ -108,4 +105,16 @@ public class EmployeeController {
         User currentUser = userService.getUserByEmail(userDetails.getUsername());
         return ResponseEntity.ok(employeeService.getMine(currentUser));
     }
+
+    // NEW
+    @PreAuthorize("hasRole('MANAGER')")
+    @GetMapping("/assignable")
+    public ResponseEntity<List<EmployeeLiteDTO>> listAssignable(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User manager = userService.getUserByEmail(userDetails.getUsername());
+        UserValidator.assertCompanyApproved(manager);
+        Long companyId = manager.getCompany().getId();
+        return ResponseEntity.ok(employeeService.getAssignableEmployees(companyId));
     }
+}

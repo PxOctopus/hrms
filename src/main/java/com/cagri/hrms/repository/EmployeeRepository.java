@@ -3,6 +3,7 @@ package com.cagri.hrms.repository;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.entity.employee.Employee;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,7 +19,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     boolean existsByCompanyId(Long companyId);
 
-    Optional<Employee> findByEmail(String email);
+//    Optional<Employee> findByEmail(String email);
+Optional<Employee> findByUser_Email(String email);
 
     int countByCompanyId(Long companyId);
 
@@ -39,10 +41,23 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
      */
     boolean existsByIdAndCompany_Id(Long id, Long companyId); // NEW
 
-    /**
-     * NEW: Prefetch 'user' and 'company' to avoid LazyInitializationException/N+1
-     * when mapping DTO fields like employee.user.fullName in the service layer.
-     */
-    @EntityGraph(attributePaths = {"user", "company"}) // NEW
-    Optional<Employee> findWithUserAndCompanyById(Long id); // NEW
+    @Query("""
+  select e from Employee e
+  join fetch e.user u
+  join fetch e.company c
+  where e.id = :id
+""")
+    Optional<Employee> findByIdWithUserAndCompany(Long id);
+
+    @Query("""
+  select e from Employee e
+  join fetch e.user u
+  where e.company.id = :companyId
+    and e.active = true
+    and e.isPendingApprovalByManager = false
+    and u.enabled = true
+    and u.emailVerified = true
+  order by u.fullName asc
+""")
+    List<Employee> findAssignable(Long companyId);
 }
