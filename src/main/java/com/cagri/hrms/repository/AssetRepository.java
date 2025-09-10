@@ -1,19 +1,17 @@
 package com.cagri.hrms.repository;
 
-import com.cagri.hrms.entity.core.Asset;
+import com.cagri.hrms.entity.asset.Asset;
 import com.cagri.hrms.entity.employee.Employee;
+import com.cagri.hrms.enums.AssetStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface AssetRepository extends JpaRepository<Asset, Long> {
-
-    // Get all assets of any employee
-    List<Asset> findByEmployee(Employee employee);
-
-    // Get all assets assigned to active employees
-    List<Asset> findAllByEmployee_ActiveTrue();
-
-    // Get all assets of a specific employee if the employee is active
-    List<Asset> findAllByEmployee_IdAndEmployee_ActiveTrue(Long employeeId);
+    Optional<Asset> findByIdAndActiveTrue(Long id);
+    List<Asset> findByCompanyIdAndActiveTrue(Long companyId);
+    List<Asset> findByCompanyIdAndStatusAndActiveTrue(Long companyId, AssetStatus status);
+    List<Asset> findByEmployeeIdAndActiveTrue(Long employeeId);
+    boolean existsByCompanyIdAndSerialNumber(Long companyId, String serialNumber);
 }
