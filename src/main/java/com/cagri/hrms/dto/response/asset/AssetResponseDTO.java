@@ -31,4 +31,6 @@ public class AssetResponseDTO {
     private String location;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private boolean issueConfirmable;
 }

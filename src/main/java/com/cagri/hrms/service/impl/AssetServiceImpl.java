@@ -126,27 +126,49 @@ public class AssetServiceImpl implements AssetService {
     public AssetResponseDTO changeStatus(Long assetId, AssetChangeStatusRequestDTO dto) {
         Asset asset = getActiveByIdAndScope(assetId);
 
-        // Simple state rules
-        switch (dto.getStatus()) {
-            case IN_STOCK -> {
-                // NEW: reset assignment-related fields when returning to inventory
-                asset.setEmployee(null);
-                asset.setConfirmed(false);
-                asset.setAssignedDate(null);
-            }
-            case RETIRED, LOST -> {
-                // Terminal-like transitions (no auto re-open)
-            }
-            case MAINTENANCE -> {
-                // Keep employee as-is or null; up to your policy
-            }
-            default -> { /* no-op */ }
+        AssetStatus oldStatus = asset.getStatus();
+        AssetStatus newStatus = dto.getStatus();
+
+        // GUARD: RETIRED is terminal; cannot transition away from it.
+        if (oldStatus == AssetStatus.RETIRED && newStatus != AssetStatus.RETIRED) {
+            throw new IllegalStateException("Retired assets cannot change state.");
         }
 
-        asset.setStatus(dto.getStatus());
+        // SPECIAL: Manager "confirm" for issue states:
+        // If same status is sent while in MAINTENANCE/LOST/RETIRED, do NOT change lifecycle state;
+        // just write an ISSUE_CONFIRMED event for audit purposes.
+        if (newStatus == oldStatus &&
+                (oldStatus == AssetStatus.MAINTENANCE || oldStatus == AssetStatus.LOST || oldStatus == AssetStatus.RETIRED)) {
+            // NEW: explicit confirmation event (you added ISSUE_CONFIRMED)
+            writeEvent(asset, EventType.ISSUE_CONFIRMED, dto.getNote() != null ? dto.getNote() : "Issue confirmed");
+            Asset persisted = assetRepo.save(asset); // persist event relation
+            return assetMapper.toResponse(persisted);
+        }
+
+        // MARK IN STOCK: only allowed from MAINTENANCE / LOST / RETURN_REQUESTED
+        if (newStatus == AssetStatus.IN_STOCK) {
+            if (!(oldStatus == AssetStatus.MAINTENANCE
+                    || oldStatus == AssetStatus.LOST
+                    || oldStatus == AssetStatus.RETURN_REQUESTED)) {
+                throw new IllegalStateException("Only MAINTENANCE, LOST or RETURN_REQUESTED can be moved to IN_STOCK.");
+            }
+
+            // NEW: When going back to stock, clear assignment fields.
+            asset.setEmployee(null);
+            asset.setConfirmed(false);
+            asset.setAssignedDate(null);
+
+            asset.setStatus(AssetStatus.IN_STOCK);
+            Asset savedStock = assetRepo.save(asset);
+            writeEvent(savedStock, EventType.STATUS_CHANGED, dto.getNote() != null ? dto.getNote() : "Marked IN_STOCK");
+            return assetMapper.toResponse(savedStock);
+        }
+
+        // DEFAULT: other transitions (manager manual status change)
+        asset.setStatus(newStatus);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.STATUS_CHANGED, dto.getNote());
-        return assetMapper.toResponse(saved); // FULL
+        return assetMapper.toResponse(saved);
     }
 
     // ---------------- Employee self-service ----------------
@@ -200,14 +222,41 @@ public class AssetServiceImpl implements AssetService {
     public AssetResponseDTO reportIssue(Long assetId, AssetIssueReportRequestDTO dto, Long employeeId) {
         Asset asset = getActiveByIdAndScope(assetId);
 
+        // GUARD: Only the assigned employee can report an issue.
         if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
             throw new IllegalStateException("Not authorized to report issue");
         }
 
-        writeEvent(asset, EventType.ISSUE_REPORTED, dto.getIssueType() + " - " + dto.getDescription());
-        return assetMapper.toResponse(asset); // FULL
-    }
+        // GUARD: Retired is terminal; no further modifications.
+        if (asset.getStatus() == AssetStatus.RETIRED) {
+            throw new IllegalStateException("Retired assets cannot be modified.");
+        }
 
+        // GUARD: Only these "issue" transitions from UI are allowed here.
+        AssetStatus target = dto.getIssueType();
+        if (target != AssetStatus.MAINTENANCE &&
+                target != AssetStatus.LOST &&
+                target != AssetStatus.RETIRED) {
+            throw new IllegalArgumentException("Only MAINTENANCE, LOST or RETIRED are allowed for issue report.");
+        }
+
+        // CHANGE: Set new status directly based on employee's report.
+        AssetStatus old = asset.getStatus();
+        asset.setStatus(target);
+
+        // WRITE EVENT: Use specific event types for better auditability.
+        if (target == AssetStatus.MAINTENANCE) {
+            writeEvent(asset, EventType.MAINTENANCE_OPENED, "Reported by employee");
+        } else if (target == AssetStatus.LOST) {
+            writeEvent(asset, EventType.LOST_REPORTED, "Reported by employee");
+        } else { // RETIRED
+            // NOTE: RETIRED is terminal; manager cannot "mark in stock" afterwards.
+            writeEvent(asset, EventType.STATUS_CHANGED, "Retired by employee");
+        }
+
+        Asset saved = assetRepo.save(asset);
+        return assetMapper.toResponse(saved); // FULL
+    }
     // ---------------- Events & Maintenance ----------------
 
     @Override
