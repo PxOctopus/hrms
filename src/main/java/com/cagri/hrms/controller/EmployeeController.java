@@ -6,6 +6,7 @@ import com.cagri.hrms.dto.response.employee.EmployeeLiteDTO; // ⬅️ EKLENDİ
 import com.cagri.hrms.dto.response.employee.EmployeeMeDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.service.CompanyService;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.UserService;
 import com.cagri.hrms.util.UserValidator;
@@ -26,6 +27,7 @@ public class EmployeeController {
 
     private final EmployeeService employeeService;
     private final UserService userService;
+    private final CompanyService companyService;
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping
@@ -106,15 +108,12 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.getMine(currentUser));
     }
 
-    // NEW
-    @PreAuthorize("hasRole('MANAGER')")
+    // NEW - 2
+
     @GetMapping("/assignable")
-    public ResponseEntity<List<EmployeeLiteDTO>> listAssignable(
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        User manager = userService.getUserByEmail(userDetails.getUsername());
-        UserValidator.assertCompanyApproved(manager);
-        Long companyId = manager.getCompany().getId();
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<List<EmployeeLiteDTO>> getAssignable() {
+        Long companyId = companyService.getCurrentCompanyIdOrThrow();
         return ResponseEntity.ok(employeeService.getAssignableEmployees(companyId));
     }
 }
