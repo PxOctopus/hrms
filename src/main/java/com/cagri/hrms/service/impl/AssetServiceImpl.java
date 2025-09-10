@@ -1,7 +1,6 @@
 package com.cagri.hrms.service.impl;
 
 import com.cagri.hrms.dto.request.asset.*;
-import com.cagri.hrms.dto.request.employee.AssetRequestDTO;
 import com.cagri.hrms.dto.response.asset.AssetEventResponseDTO;
 import com.cagri.hrms.dto.response.asset.AssetMaintenanceResponseDTO;
 import com.cagri.hrms.dto.response.employee.AssetResponseDTO;
@@ -19,15 +18,12 @@ import com.cagri.hrms.mapper.AssetMapper;
 import com.cagri.hrms.repository.AssetEventRepository;
 import com.cagri.hrms.repository.AssetMaintenanceRepository;
 import com.cagri.hrms.repository.AssetRepository;
-import com.cagri.hrms.repository.EmployeeRepository;
-import com.cagri.hrms.security.CustomUserDetails;
 import com.cagri.hrms.service.AssetService;
 import com.cagri.hrms.service.CompanyService;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.UserService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;

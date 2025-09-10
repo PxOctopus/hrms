@@ -1,6 +1,7 @@
 package com.cagri.hrms.dto.response.asset;
 
 import com.cagri.hrms.entity.asset.AssetEvent;
+import com.cagri.hrms.enums.EventType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
 public class AssetEventResponseDTO {
     private Long id;
     private Long assetId;
-    private AssetEvent.EventType type;
+    private EventType type;
     private Long actorUserId;
     private String metadataJson;
     private LocalDateTime createdAt;

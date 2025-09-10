@@ -6,6 +6,7 @@ import com.cagri.hrms.dto.response.employee.EmployeeLiteDTO; // ⬅️ EKLENDİ
 import com.cagri.hrms.dto.response.employee.EmployeeMeDTO;
 import com.cagri.hrms.dto.response.employee.EmployeeResponseDTO;
 import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.entity.employee.Employee;
 
 import java.util.List;
 
@@ -35,4 +36,17 @@ public interface EmployeeService {
 
     // NEW
     List<EmployeeLiteDTO> getAssignableEmployees(Long companyId);
+
+    // ---------------- ADDED: current employee & scoped getters ----------------
+    /** Returns current employee id mapped from the authenticated user. */
+    // ADDED:
+    Long getCurrentEmployeeIdOrThrow();
+
+    /** Returns employee by id and asserts it belongs to current company. */
+    // ADDED:
+    Employee getByIdScoped(Long employeeId);
+
+    /** Returns employee by userId or throws; useful for company resolution. */
+    // ADDED:
+    Employee getByUserIdOrThrow(Long userId);
 }

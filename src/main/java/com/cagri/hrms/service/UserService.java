@@ -36,4 +36,19 @@ public interface UserService {
 
     UserResponseDTO updateManagerProfile(Long userId, ManagerUpdateProfileRequestDTO dto);
 
+    // ---------------- ADDED: helpers for current principal ----------------
+    /** Returns the current authenticated user or throws if unauthenticated. */
+    // ADDED:
+    User getCurrentUserOrThrow();
+
+    /** Returns the current authenticated user id or throws if unauthenticated. */
+    // ADDED:
+    Long getCurrentUserId();
+
+    /** Safe variant: returns current user or null (useful for audit logging). */
+    // ADDED:
+    User getCurrentUserOrNull();
+
+    User getById(Long id);
+
 }

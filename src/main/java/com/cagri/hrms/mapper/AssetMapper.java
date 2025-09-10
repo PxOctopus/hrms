@@ -2,7 +2,6 @@ package com.cagri.hrms.mapper;
 
 import com.cagri.hrms.dto.request.asset.AssetCreateRequestDTO;
 import com.cagri.hrms.dto.request.asset.AssetUpdateRequestDTO;
-import com.cagri.hrms.dto.request.employee.AssetRequestDTO;
 import com.cagri.hrms.dto.response.asset.AssetEventResponseDTO;
 import com.cagri.hrms.dto.response.asset.AssetMaintenanceResponseDTO;
 import com.cagri.hrms.dto.response.employee.AssetResponseDTO;
@@ -14,14 +13,22 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring")
 public interface AssetMapper {
 
-    // Entity -> Response
-    @Mapping(target = "employeeId", source = "employee.id")
-    @Mapping(target = "employeeName", expression = "java(asset.getEmployee() != null ? asset.getEmployee().getFullName() : null)")
-    @Mapping(target = "managerId", source = "manager.id")
-    @Mapping(target = "companyId", source = "company.id")
+    // Map Asset entity to AssetResponseDTO
+    // Align field names: entity.assetName -> dto.name
+    // Handle nested mapping for employee full name
+    @Mappings({
+            @Mapping(target = "id", source = "id"),
+            @Mapping(target = "name", source = "assetName"),
+            @Mapping(target = "description", source = "description"),
+            @Mapping(
+                    target = "employeeFullName",
+                    expression = "java(asset.getEmployee() != null && asset.getEmployee().getUser() != null "
+                            + "? asset.getEmployee().getUser().getFullName() : null)"
+            )
+    })
     AssetResponseDTO toResponse(Asset asset);
 
-    // CreateRequest -> Entity
+    // Map AssetCreateRequestDTO to Asset entity (used on creation)
     @BeanMapping(ignoreByDefault = true)
     @Mappings({
             @Mapping(target = "assetName", source = "assetName"),
@@ -33,13 +40,13 @@ public interface AssetMapper {
     })
     Asset toEntity(AssetCreateRequestDTO dto);
 
-    // UpdateRequest -> Entity (partial update)
+    // Partial update: copy non-null fields from DTO to entity
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateEntity(@MappingTarget Asset asset, AssetUpdateRequestDTO dto);
 
-    // Events
+    // Map AssetEvent entity to its response DTO
     AssetEventResponseDTO toResponse(AssetEvent event);
 
-    // Maintenance
+    // Map AssetMaintenance entity to its response DTO
     AssetMaintenanceResponseDTO toResponse(AssetMaintenance m);
 }

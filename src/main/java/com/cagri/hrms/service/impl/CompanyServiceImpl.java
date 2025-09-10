@@ -5,14 +5,21 @@ import com.cagri.hrms.dto.response.company.CompanyResponseDTO;
 import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.entity.employee.Employee;
 import com.cagri.hrms.exception.BusinessException;
+import com.cagri.hrms.exception.ErrorType;
+import com.cagri.hrms.exception.HrmsException;
 import com.cagri.hrms.exception.ResourceNotFoundException;
 import com.cagri.hrms.mapper.CompanyMapper;
 import com.cagri.hrms.mapper.UserMapper;
 import com.cagri.hrms.repository.CompanyRepository;
+import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.UserRepository;
+import com.cagri.hrms.security.SecurityUtil;
 import com.cagri.hrms.service.CompanyService;
+import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.MailService;
+import com.cagri.hrms.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -35,6 +42,8 @@ public class CompanyServiceImpl implements CompanyService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final MailService mailService;
+    private final EmployeeRepository employeeRepository;
+    private final UserService  userService;
 
 
     @Override
@@ -161,5 +170,54 @@ public class CompanyServiceImpl implements CompanyService {
         Company company = companyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found with ID: " + id));
         companyRepository.delete(company);
+    }
+
+
+    //ADDED
+
+    @Override
+    public Company getCurrentCompanyOrThrow() {
+        Long userId = userService.getCurrentUserId();
+
+        // Use roles to decide path (simple and explicit)
+        boolean isManager = SecurityUtil.hasRole("MANAGER");
+        boolean isEmployee = SecurityUtil.hasRole("EMPLOYEE");
+
+        if (isManager) {
+            return companyRepository.findByCompanyManagerId(userId)
+                    .orElseThrow(() -> new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Company not found for manager"));
+        }
+
+        if (isEmployee) {
+            Employee emp = employeeRepository.findByUserId(userId)
+                    .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found by userId"));
+            if (emp.getCompany() == null)
+                throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Employee has no company");
+            return emp.getCompany();
+        }
+
+        // If you have ADMIN, decide policy (header-driven, or deny)
+        throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Company scope cannot be resolved");
+    }
+
+    @Override
+    public Long getCurrentCompanyIdOrThrow() {
+        // Convenience: resolve current company and return its id
+        return getCurrentCompanyOrThrow().getId();
+    }
+
+    @Override
+    public void assertInCurrentCompany(Long companyId) {
+        // Row-level scope guard
+        Long current = getCurrentCompanyIdOrThrow();
+        if (!current.equals(companyId)) {
+            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Cross-company access denied");
+        }
+    }
+
+    @Override
+    public Long getCurrentUserId() {
+        // Passthrough to UserService helper
+        return userService.getCurrentUserId();
     }
 }

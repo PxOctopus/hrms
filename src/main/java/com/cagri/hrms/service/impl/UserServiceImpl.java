@@ -9,9 +9,12 @@ import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.entity.core.Role;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.exception.BusinessException;
+import com.cagri.hrms.exception.ErrorType;
+import com.cagri.hrms.exception.HrmsException;
 import com.cagri.hrms.mapper.UserMapper;
 import com.cagri.hrms.repository.RoleRepository;
 import com.cagri.hrms.repository.UserRepository;
+import com.cagri.hrms.security.CustomUserDetails;
 import com.cagri.hrms.service.MailService;
 import com.cagri.hrms.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
@@ -204,6 +207,44 @@ public class UserServiceImpl implements UserService {
         user.setAddress(dto.getAddress());
 
         return userMapper.toDTO(userRepository.save(user));
+    }
+
+    // ---------------- ADDED: core helpers ----------------
+
+    @Override
+    public User getCurrentUserOrThrow() {
+        // NOTE: Prefer using CustomUserDetails with id; fallback by email string principal.
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null)
+            throw new HrmsException(ErrorType.AUTHENTICATION_ERROR, "No authenticated principal");
+        Object p = auth.getPrincipal();
+
+
+        if (p instanceof CustomUserDetails cud && cud.getId() != null) {
+            return userRepository.findById(cud.getId())
+                    .orElseThrow(() -> new HrmsException(ErrorType.AUTHENTICATION_ERROR, "User not found by id"));
+        }
+        if (p instanceof String email) {
+            return userRepository.findByEmail(email)
+                    .orElseThrow(() -> new HrmsException(ErrorType.AUTHENTICATION_ERROR, "User not found by email"));
+        }
+        throw new HrmsException(ErrorType.AUTHENTICATION_ERROR, "Unsupported principal type");
+    }
+
+    @Override
+    public Long getCurrentUserId() {
+        return getCurrentUserOrThrow().getId();
+    }
+
+    @Override
+    public User getCurrentUserOrNull() {
+        try { return getCurrentUserOrThrow(); } catch (Exception e) { return null; }
+    }
+
+    @Override
+    public User getById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "User not found with id: " + id));
     }
 }
 

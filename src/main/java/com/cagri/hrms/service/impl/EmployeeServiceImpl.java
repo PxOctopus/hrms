@@ -9,13 +9,14 @@ import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.employee.Employee;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.entity.core.Role;
+import com.cagri.hrms.exception.ErrorType;
+import com.cagri.hrms.exception.HrmsException;
 import com.cagri.hrms.mapper.EmployeeMapper;
 import com.cagri.hrms.repository.CompanyRepository;
 import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.repository.RoleRepository;
-import com.cagri.hrms.service.EmployeeService;
-import com.cagri.hrms.service.MailService;
+import com.cagri.hrms.service.*;
 import com.cagri.hrms.util.PasswordUtil;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserService userService;
+    private final CompanyService companyService;
 
     @Override
     @Transactional(readOnly = true)
@@ -233,5 +236,30 @@ public class EmployeeServiceImpl implements EmployeeService {
                     return new EmployeeLiteDTO(e.getId(), display, email);
                 })
                 .toList();
+    }
+
+    // ---------------- ADDED: helpers ----------------
+
+    @Override
+    public Long getCurrentEmployeeIdOrThrow() {
+        Long userId = userService.getCurrentUserId();
+        Employee emp = employeeRepository.findByUserId(userId)
+                .orElseThrow(() -> new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Employee profile not found"));
+        return emp.getId();
+    }
+
+    @Override
+    public Employee getByIdScoped(Long employeeId) {
+        Employee emp = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found"));
+        // row-level scope: make sure the employee belongs to the same company
+        companyService.assertInCurrentCompany(emp.getCompany().getId());
+        return emp;
+    }
+
+    @Override
+    public Employee getByUserIdOrThrow(Long userId) {
+        return employeeRepository.findByUserId(userId)
+                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found by userId"));
     }
 }
