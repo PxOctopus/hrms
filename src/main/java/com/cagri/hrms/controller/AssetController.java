@@ -1,10 +1,10 @@
 package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.asset.*;
-import com.cagri.hrms.dto.request.employee.AssetRequestDTO;
 import com.cagri.hrms.dto.response.asset.AssetEventResponseDTO;
 import com.cagri.hrms.dto.response.asset.AssetMaintenanceResponseDTO;
-import com.cagri.hrms.dto.response.employee.AssetResponseDTO;
+import com.cagri.hrms.dto.response.asset.AssetResponseDTO;                 // FULL DTO (manager)
+import com.cagri.hrms.dto.response.employee.EmployeeAssetResponseDTO;     // SLIM DTO (employee list)
 import com.cagri.hrms.enums.AssetStatus;
 import com.cagri.hrms.service.AssetService;
 import com.cagri.hrms.service.CompanyService;
@@ -25,39 +25,37 @@ public class AssetController {
     private final CompanyService companyService;
     private final EmployeeService employeeService;
 
-    // -------- Manager endpoints --------
+    // ---------------- Manager endpoints (return FULL DTO) ----------------
 
     @PostMapping
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<AssetResponseDTO> create(@RequestBody AssetCreateRequestDTO dto) {
-        return ResponseEntity.ok(assetService.create(dto));
+        return ResponseEntity.ok(assetService.create(dto)); // FULL
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<AssetResponseDTO> update(@PathVariable Long id, @RequestBody AssetUpdateRequestDTO dto) {
-        return ResponseEntity.ok(assetService.update(id, dto));
+        return ResponseEntity.ok(assetService.update(id, dto)); // FULL
     }
 
     @GetMapping
     @PreAuthorize("hasRole('MANAGER')")
-    public ResponseEntity<List<AssetResponseDTO>> list(
-            @RequestParam(required = false) AssetStatus status
-    ) {
+    public ResponseEntity<List<AssetResponseDTO>> list(@RequestParam(required = false) AssetStatus status) {
         Long companyId = companyService.getCurrentCompanyOrThrow().getId();
-        return ResponseEntity.ok(assetService.listByCompany(companyId, status));
+        return ResponseEntity.ok(assetService.listByCompany(companyId, status)); // FULL list
     }
 
     @PostMapping("/{id}/assign")
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<AssetResponseDTO> assign(@PathVariable Long id, @RequestBody AssetAssignRequestDTO dto) {
-        return ResponseEntity.ok(assetService.assign(id, dto));
+        return ResponseEntity.ok(assetService.assign(id, dto)); // FULL
     }
 
     @PostMapping("/{id}/status")
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<AssetResponseDTO> changeStatus(@PathVariable Long id, @RequestBody AssetChangeStatusRequestDTO dto) {
-        return ResponseEntity.ok(assetService.changeStatus(id, dto));
+        return ResponseEntity.ok(assetService.changeStatus(id, dto)); // FULL
     }
 
     @PostMapping("/{id}/approve-return")
@@ -68,7 +66,7 @@ public class AssetController {
                 .status(AssetStatus.IN_STOCK)
                 .note("Return approved")
                 .build();
-        return ResponseEntity.ok(assetService.changeStatus(id, dto));
+        return ResponseEntity.ok(assetService.changeStatus(id, dto)); // FULL
     }
 
     @PostMapping("/{id}/maintenance")
@@ -79,37 +77,37 @@ public class AssetController {
         return ResponseEntity.ok(assetService.openMaintenance(id, dto, actorUserId));
     }
 
-    // -------- Employee endpoints --------
+    // ---------------- Employee endpoints ----------------
 
     @GetMapping("/my")
     @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<List<AssetResponseDTO>> myAssets() {
+    public ResponseEntity<List<EmployeeAssetResponseDTO>> myAssets() {
         Long employeeId = employeeService.getCurrentEmployeeIdOrThrow();
-        return ResponseEntity.ok(assetService.listMyAssets(employeeId));
+        return ResponseEntity.ok(assetService.listMyAssets(employeeId)); // SLIM list
     }
 
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<AssetResponseDTO> confirm(@PathVariable Long id, @RequestBody AssetConfirmRequestDTO dto) {
         Long employeeId = employeeService.getCurrentEmployeeIdOrThrow();
-        return ResponseEntity.ok(assetService.confirm(id, dto, employeeId));
+        return ResponseEntity.ok(assetService.confirm(id, dto, employeeId)); // FULL (needs status/confirmed)
     }
 
     @PostMapping("/{id}/request-return")
     @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<AssetResponseDTO> requestReturn(@PathVariable Long id, @RequestBody AssetReturnRequestDTO dto) {
         Long employeeId = employeeService.getCurrentEmployeeIdOrThrow();
-        return ResponseEntity.ok(assetService.requestReturn(id, dto, employeeId));
+        return ResponseEntity.ok(assetService.requestReturn(id, dto, employeeId)); // FULL
     }
 
     @PostMapping("/{id}/report-issue")
     @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<AssetResponseDTO> reportIssue(@PathVariable Long id, @RequestBody AssetIssueReportRequestDTO dto) {
         Long employeeId = employeeService.getCurrentEmployeeIdOrThrow();
-        return ResponseEntity.ok(assetService.reportIssue(id, dto, employeeId));
+        return ResponseEntity.ok(assetService.reportIssue(id, dto, employeeId)); // FULL
     }
 
-    // -------- Common endpoints --------
+    // ---------------- Common endpoints ----------------
 
     @GetMapping("/{id}/events")
     @PreAuthorize("hasAnyRole('MANAGER','EMPLOYEE')")

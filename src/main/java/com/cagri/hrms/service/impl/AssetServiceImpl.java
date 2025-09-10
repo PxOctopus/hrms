@@ -3,7 +3,8 @@ package com.cagri.hrms.service.impl;
 import com.cagri.hrms.dto.request.asset.*;
 import com.cagri.hrms.dto.response.asset.AssetEventResponseDTO;
 import com.cagri.hrms.dto.response.asset.AssetMaintenanceResponseDTO;
-import com.cagri.hrms.dto.response.employee.AssetResponseDTO;
+import com.cagri.hrms.dto.response.asset.AssetResponseDTO;                 // FULL DTO
+import com.cagri.hrms.dto.response.employee.EmployeeAssetResponseDTO;     // SLIM DTO
 import com.cagri.hrms.entity.asset.Asset;
 import com.cagri.hrms.entity.asset.AssetEvent;
 import com.cagri.hrms.entity.asset.AssetMaintenance;
@@ -14,7 +15,8 @@ import com.cagri.hrms.enums.AssetCondition;
 import com.cagri.hrms.enums.AssetStatus;
 import com.cagri.hrms.enums.EventType;
 import com.cagri.hrms.enums.MaintenanceStatus;
-import com.cagri.hrms.mapper.AssetMapper;
+import com.cagri.hrms.mapper.AssetMapper;               // maps Asset -> AssetResponseDTO (FULL)
+import com.cagri.hrms.mapper.EmployeeAssetMapper;      // maps Asset -> EmployeeAssetResponseDTO (SLIM)
 import com.cagri.hrms.repository.AssetEventRepository;
 import com.cagri.hrms.repository.AssetMaintenanceRepository;
 import com.cagri.hrms.repository.AssetRepository;
@@ -22,9 +24,9 @@ import com.cagri.hrms.service.AssetService;
 import com.cagri.hrms.service.CompanyService;
 import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.UserService;
-import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -37,24 +39,38 @@ public class AssetServiceImpl implements AssetService {
     private final AssetRepository assetRepo;
     private final AssetEventRepository eventRepo;
     private final AssetMaintenanceRepository maintenanceRepo;
-    private final AssetMapper assetMapper;
 
-    // Inject user/company/employee services to resolve current context
+    // Mappers
+    private final AssetMapper assetMapper;                     // FULL
+    private final EmployeeAssetMapper employeeAssetMapper;     // SLIM
+
+    // Context services
     private final UserService userService;
     private final EmployeeService employeeService;
     private final CompanyService companyService;
+
+    // ---------------- Manager flows (return FULL DTO) ----------------
 
     @Override
     public AssetResponseDTO create(AssetCreateRequestDTO dto) {
         // Resolve company from auth context
         Company company = companyService.getCurrentCompanyOrThrow();
+
         Asset entity = assetMapper.toEntity(dto);
         entity.setCompany(company);
         entity.setStatus(AssetStatus.IN_STOCK);
-        if (entity.getCondition() == null) entity.setCondition(AssetCondition.NEW);
+
+        // NEW: ensure defaults so it appears in manager list and starts unconfirmed
+        entity.setActive(true);              // <-- list uses findByCompanyIdAndActiveTrue
+        entity.setConfirmed(false);          // <-- brand-new, not yet confirmed by an employee
+
+        if (entity.getCondition() == null) {
+            entity.setCondition(AssetCondition.NEW);
+        }
+
         entity = assetRepo.save(entity);
         writeEvent(entity, EventType.NOTE_ADDED, "Created asset");
-        return assetMapper.toResponse(entity);
+        return assetMapper.toResponse(entity); // FULL
     }
 
     @Override
@@ -63,12 +79,13 @@ public class AssetServiceImpl implements AssetService {
         assetMapper.updateEntity(asset, dto);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.NOTE_ADDED, "Updated asset fields");
-        return assetMapper.toResponse(saved);
+        return assetMapper.toResponse(saved); // FULL
     }
 
     @Override
     public void softDelete(Long id) {
         Asset asset = getActiveByIdAndScope(id);
+        // If you use "deleted" flag instead of "active", adjust here accordingly
         asset.setActive(false);
         assetRepo.save(asset);
         writeEvent(asset, EventType.NOTE_ADDED, "Soft-deleted");
@@ -77,107 +94,129 @@ public class AssetServiceImpl implements AssetService {
     @Override
     @Transactional(readOnly = true)
     public List<AssetResponseDTO> listByCompany(Long companyId, AssetStatus status) {
+        // Note: list is company-scoped + active=true
         List<Asset> list = (status == null)
                 ? assetRepo.findByCompanyIdAndActiveTrue(companyId)
                 : assetRepo.findByCompanyIdAndStatusAndActiveTrue(companyId, status);
-        return list.stream().map(assetMapper::toResponse).toList();
-    }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<AssetResponseDTO> listMyAssets(Long employeeId) {
-        return assetRepo.findByEmployeeIdAndActiveTrue(employeeId)
-                .stream().map(assetMapper::toResponse).toList();
+        return list.stream().map(assetMapper::toResponse).toList(); // FULL
     }
 
     @Override
     public AssetResponseDTO assign(Long assetId, AssetAssignRequestDTO dto) {
         Asset asset = getActiveByIdAndScope(assetId);
         guardAssign(asset);
+
         Employee emp = employeeService.getByIdScoped(dto.getEmployeeId());
         User manager = userService.getCurrentUserOrThrow();
 
+        // NEW: record who assigned it (manager), and set assignment fields
         asset.setEmployee(emp);
-        asset.setManager(manager);
+        asset.setManager(manager);                   // <-- manager_id will be persisted
         asset.setStatus(AssetStatus.ASSIGNED);
         asset.setAssignedDate(LocalDate.now());
-        asset.setConfirmed(false);
+        asset.setConfirmed(false);                   // waiting for employee confirmation
 
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.ASSIGNED, dto.getNote());
-        return assetMapper.toResponse(saved);
+        return assetMapper.toResponse(saved); // FULL
     }
 
     @Override
     public AssetResponseDTO changeStatus(Long assetId, AssetChangeStatusRequestDTO dto) {
         Asset asset = getActiveByIdAndScope(assetId);
-        // Guard transitions (simple MVP rules)
+
+        // Simple state rules
         switch (dto.getStatus()) {
             case IN_STOCK -> {
+                // NEW: reset assignment-related fields when returning to inventory
                 asset.setEmployee(null);
                 asset.setConfirmed(false);
+                asset.setAssignedDate(null);
             }
             case RETIRED, LOST -> {
                 // Terminal-like transitions (no auto re-open)
             }
             case MAINTENANCE -> {
-                // Keep employee as-is or null; depends on your policy
+                // Keep employee as-is or null; up to your policy
             }
-            default -> {}
+            default -> { /* no-op */ }
         }
+
         asset.setStatus(dto.getStatus());
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.STATUS_CHANGED, dto.getNote());
-        return assetMapper.toResponse(saved);
+        return assetMapper.toResponse(saved); // FULL
+    }
+
+    // ---------------- Employee self-service ----------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmployeeAssetResponseDTO> listMyAssets(Long employeeId) {
+        return assetRepo.findByEmployeeIdAndActiveTrue(employeeId)
+                .stream()
+                .map(employeeAssetMapper::toEmployeeDto) // SLIM
+                .toList();
     }
 
     @Override
     public AssetResponseDTO confirm(Long assetId, AssetConfirmRequestDTO dto, Long employeeId) {
         Asset asset = getActiveByIdAndScope(assetId);
-        // Only the assigned employee can confirm
+
+        // Only assigned employee can confirm
         if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
             throw new IllegalStateException("Not authorized to confirm this asset");
         }
         if (asset.getStatus() != AssetStatus.ASSIGNED) {
             throw new IllegalStateException("Asset is not in ASSIGNED state");
         }
+
         asset.setConfirmed(true);
         asset.setStatus(AssetStatus.ASSIGNED_CONFIRMED);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.CONFIRMED, dto.getNote());
-        return assetMapper.toResponse(saved);
+        return assetMapper.toResponse(saved); // FULL (FE needs status/confirmed etc.)
     }
 
     @Override
     public AssetResponseDTO requestReturn(Long assetId, AssetReturnRequestDTO dto, Long employeeId) {
         Asset asset = getActiveByIdAndScope(assetId);
+
         if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
             throw new IllegalStateException("Not authorized to request return");
         }
         if (asset.getStatus() != AssetStatus.ASSIGNED && asset.getStatus() != AssetStatus.ASSIGNED_CONFIRMED) {
             throw new IllegalStateException("Return request not allowed in current state");
         }
+
         asset.setStatus(AssetStatus.RETURN_REQUESTED);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.RETURN_REQUESTED, dto.getReason());
-        return assetMapper.toResponse(saved);
+        return assetMapper.toResponse(saved); // FULL
     }
 
     @Override
     public AssetResponseDTO reportIssue(Long assetId, AssetIssueReportRequestDTO dto, Long employeeId) {
         Asset asset = getActiveByIdAndScope(assetId);
+
         if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
             throw new IllegalStateException("Not authorized to report issue");
         }
+
         writeEvent(asset, EventType.ISSUE_REPORTED, dto.getIssueType() + " - " + dto.getDescription());
-        return assetMapper.toResponse(asset);
+        return assetMapper.toResponse(asset); // FULL
     }
+
+    // ---------------- Events & Maintenance ----------------
 
     @Override
     @Transactional(readOnly = true)
     public List<AssetEventResponseDTO> events(Long assetId) {
         return eventRepo.findByAssetIdOrderByCreatedAtAsc(assetId)
-                .stream().map(assetMapper::toResponse).toList();
+                .stream()
+                .map(assetMapper::toResponse)
+                .toList();
     }
 
     @Override
@@ -196,6 +235,7 @@ public class AssetServiceImpl implements AssetService {
 
         assetRepo.save(asset);
         maintenanceRepo.save(m);
+
         writeEvent(asset, EventType.MAINTENANCE_OPENED, dto.getNotes());
         return assetMapper.toResponse(m);
     }
@@ -211,6 +251,7 @@ public class AssetServiceImpl implements AssetService {
         maintenanceRepo.save(m);
 
         Asset asset = m.getAsset();
+
         // Restore status depending on configuration
         if (dto.isRestoreToAssigned() && asset.getEmployee() != null) {
             asset.setStatus(AssetStatus.ASSIGNED_CONFIRMED);
@@ -218,6 +259,7 @@ public class AssetServiceImpl implements AssetService {
             asset.setStatus(AssetStatus.IN_STOCK);
             asset.setEmployee(null);
             asset.setConfirmed(false);
+            asset.setAssignedDate(null);
         }
         assetRepo.save(asset);
 
@@ -225,7 +267,7 @@ public class AssetServiceImpl implements AssetService {
         return assetMapper.toResponse(m);
     }
 
-    // --------- Helpers ---------
+    // ---------------- Helpers ----------------
 
     private Asset getActiveByIdAndScope(Long id) {
         Asset asset = assetRepo.findByIdAndActiveTrue(id)
@@ -252,5 +294,3 @@ public class AssetServiceImpl implements AssetService {
         eventRepo.save(ev);
     }
 }
-
-
