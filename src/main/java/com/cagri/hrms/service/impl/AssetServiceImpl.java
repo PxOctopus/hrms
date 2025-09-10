@@ -40,37 +40,62 @@ public class AssetServiceImpl implements AssetService {
     private final AssetEventRepository eventRepo;
     private final AssetMaintenanceRepository maintenanceRepo;
 
-    // Mappers
     private final AssetMapper assetMapper;                     // FULL
     private final EmployeeAssetMapper employeeAssetMapper;     // SLIM
 
-    // Context services
     private final UserService userService;
     private final EmployeeService employeeService;
     private final CompanyService companyService;
+
+    // =========================================================
+    // NEW: helper — determine if issue can be confirmed by manager
+    // Rule: only for MAINTENANCE/LOST/RETIRED and not already ISSUE_CONFIRMED
+    // =========================================================
+    private boolean isIssueConfirmable(Asset asset) {
+        AssetStatus s = asset.getStatus();
+        boolean issueState = (s == AssetStatus.MAINTENANCE || s == AssetStatus.LOST || s == AssetStatus.RETIRED);
+        if (!issueState) return false;
+        return !eventRepo.existsByAssetIdAndType(asset.getId(), EventType.ISSUE_CONFIRMED);
+    }
+
+    // =========================================================
+    // NEW: helper — for MyAssets (employee) to decide "Undo Issue" visibility
+    // Allowed only for MAINTENANCE/LOST and if not ISSUE_CONFIRMED by manager
+    // =========================================================
+    private boolean isIssueUndoableByEmployee(Asset asset) {
+        AssetStatus s = asset.getStatus();
+        if (!(s == AssetStatus.MAINTENANCE || s == AssetStatus.LOST)) return false; // RETIRED never undo
+        return !eventRepo.existsByAssetIdAndType(asset.getId(), EventType.ISSUE_CONFIRMED);
+    }
+
+    // =========================================================
+    // NEW: single place to build FULL DTO + enrichment fields
+    // Mapper remains pure; enrichment (DB reads) stays in service
+    // NOTE: AssetResponseDTO needs a boolean issueConfirmable field.
+    // =========================================================
+    private AssetResponseDTO toDto(Asset asset) {
+        AssetResponseDTO dto = assetMapper.toResponse(asset);
+        dto.setIssueConfirmable(isIssueConfirmable(asset)); // <-- enrichment for manager UI
+        return dto;
+    }
 
     // ---------------- Manager flows (return FULL DTO) ----------------
 
     @Override
     public AssetResponseDTO create(AssetCreateRequestDTO dto) {
-        // Resolve company from auth context
         Company company = companyService.getCurrentCompanyOrThrow();
-
         Asset entity = assetMapper.toEntity(dto);
         entity.setCompany(company);
         entity.setStatus(AssetStatus.IN_STOCK);
-
-        // NEW: ensure defaults so it appears in manager list and starts unconfirmed
-        entity.setActive(true);              // <-- list uses findByCompanyIdAndActiveTrue
-        entity.setConfirmed(false);          // <-- brand-new, not yet confirmed by an employee
-
+        entity.setActive(true);
+        entity.setConfirmed(false);
         if (entity.getCondition() == null) {
             entity.setCondition(AssetCondition.NEW);
         }
 
         entity = assetRepo.save(entity);
         writeEvent(entity, EventType.NOTE_ADDED, "Created asset");
-        return assetMapper.toResponse(entity); // FULL
+        return toDto(entity); // CHANGED: enrich before returning
     }
 
     @Override
@@ -79,27 +104,26 @@ public class AssetServiceImpl implements AssetService {
         assetMapper.updateEntity(asset, dto);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.NOTE_ADDED, "Updated asset fields");
-        return assetMapper.toResponse(saved); // FULL
+        return toDto(saved); // CHANGED
     }
 
     @Override
     public void softDelete(Long id) {
         Asset asset = getActiveByIdAndScope(id);
-        // If you use "deleted" flag instead of "active", adjust here accordingly
         asset.setActive(false);
         assetRepo.save(asset);
         writeEvent(asset, EventType.NOTE_ADDED, "Soft-deleted");
+        // no return
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AssetResponseDTO> listByCompany(Long companyId, AssetStatus status) {
-        // Note: list is company-scoped + active=true
         List<Asset> list = (status == null)
                 ? assetRepo.findByCompanyIdAndActiveTrue(companyId)
                 : assetRepo.findByCompanyIdAndStatusAndActiveTrue(companyId, status);
 
-        return list.stream().map(assetMapper::toResponse).toList(); // FULL
+        return list.stream().map(this::toDto).toList(); // CHANGED
     }
 
     @Override
@@ -110,16 +134,15 @@ public class AssetServiceImpl implements AssetService {
         Employee emp = employeeService.getByIdScoped(dto.getEmployeeId());
         User manager = userService.getCurrentUserOrThrow();
 
-        // NEW: record who assigned it (manager), and set assignment fields
         asset.setEmployee(emp);
-        asset.setManager(manager);                   // <-- manager_id will be persisted
+        asset.setManager(manager);
         asset.setStatus(AssetStatus.ASSIGNED);
         asset.setAssignedDate(LocalDate.now());
-        asset.setConfirmed(false);                   // waiting for employee confirmation
+        asset.setConfirmed(false);
 
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.ASSIGNED, dto.getNote());
-        return assetMapper.toResponse(saved); // FULL
+        return toDto(saved); // CHANGED
     }
 
     @Override
@@ -129,31 +152,24 @@ public class AssetServiceImpl implements AssetService {
         AssetStatus oldStatus = asset.getStatus();
         AssetStatus newStatus = dto.getStatus();
 
-        // GUARD: RETIRED is terminal; cannot transition away from it.
         if (oldStatus == AssetStatus.RETIRED && newStatus != AssetStatus.RETIRED) {
             throw new IllegalStateException("Retired assets cannot change state.");
         }
 
-        // SPECIAL: Manager "confirm" for issue states:
-        // If same status is sent while in MAINTENANCE/LOST/RETIRED, do NOT change lifecycle state;
-        // just write an ISSUE_CONFIRMED event for audit purposes.
+        // Confirm Issue: same-status while in issue states → do not change status, just audit event
         if (newStatus == oldStatus &&
                 (oldStatus == AssetStatus.MAINTENANCE || oldStatus == AssetStatus.LOST || oldStatus == AssetStatus.RETIRED)) {
-            // NEW: explicit confirmation event (you added ISSUE_CONFIRMED)
             writeEvent(asset, EventType.ISSUE_CONFIRMED, dto.getNote() != null ? dto.getNote() : "Issue confirmed");
-            Asset persisted = assetRepo.save(asset); // persist event relation
-            return assetMapper.toResponse(persisted);
+            // persist asset (no status change) to keep updatedAt etc.
+            Asset persisted = assetRepo.save(asset);
+            return toDto(persisted); // CHANGED: enrichment ensures issueConfirmable=false now
         }
 
-        // MARK IN STOCK: only allowed from MAINTENANCE / LOST / RETURN_REQUESTED
+        // Mark IN_STOCK from MAINTENANCE/LOST/RETURN_REQUESTED
         if (newStatus == AssetStatus.IN_STOCK) {
-            if (!(oldStatus == AssetStatus.MAINTENANCE
-                    || oldStatus == AssetStatus.LOST
-                    || oldStatus == AssetStatus.RETURN_REQUESTED)) {
+            if (!(oldStatus == AssetStatus.MAINTENANCE || oldStatus == AssetStatus.LOST || oldStatus == AssetStatus.RETURN_REQUESTED)) {
                 throw new IllegalStateException("Only MAINTENANCE, LOST or RETURN_REQUESTED can be moved to IN_STOCK.");
             }
-
-            // NEW: When going back to stock, clear assignment fields.
             asset.setEmployee(null);
             asset.setConfirmed(false);
             asset.setAssignedDate(null);
@@ -161,14 +177,14 @@ public class AssetServiceImpl implements AssetService {
             asset.setStatus(AssetStatus.IN_STOCK);
             Asset savedStock = assetRepo.save(asset);
             writeEvent(savedStock, EventType.STATUS_CHANGED, dto.getNote() != null ? dto.getNote() : "Marked IN_STOCK");
-            return assetMapper.toResponse(savedStock);
+            return toDto(savedStock); // CHANGED
         }
 
-        // DEFAULT: other transitions (manager manual status change)
+        // Default manual transition
         asset.setStatus(newStatus);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.STATUS_CHANGED, dto.getNote());
-        return assetMapper.toResponse(saved);
+        return toDto(saved); // CHANGED
     }
 
     // ---------------- Employee self-service ----------------
@@ -178,7 +194,13 @@ public class AssetServiceImpl implements AssetService {
     public List<EmployeeAssetResponseDTO> listMyAssets(Long employeeId) {
         return assetRepo.findByEmployeeIdAndActiveTrue(employeeId)
                 .stream()
-                .map(employeeAssetMapper::toEmployeeDto) // SLIM
+                .map(a -> {
+                    EmployeeAssetResponseDTO dto = employeeAssetMapper.toEmployeeDto(a);
+                    // NEW: enrich SLIM dto for Undo button visibility on MyAssets
+                    // NOTE: EmployeeAssetResponseDTO must have: private boolean issueUndoable;
+                    dto.setIssueUndoable(isIssueUndoableByEmployee(a));
+                    return dto;
+                })
                 .toList();
     }
 
@@ -186,7 +208,6 @@ public class AssetServiceImpl implements AssetService {
     public AssetResponseDTO confirm(Long assetId, AssetConfirmRequestDTO dto, Long employeeId) {
         Asset asset = getActiveByIdAndScope(assetId);
 
-        // Only assigned employee can confirm
         if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
             throw new IllegalStateException("Not authorized to confirm this asset");
         }
@@ -198,7 +219,7 @@ public class AssetServiceImpl implements AssetService {
         asset.setStatus(AssetStatus.ASSIGNED_CONFIRMED);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.CONFIRMED, dto.getNote());
-        return assetMapper.toResponse(saved); // FULL (FE needs status/confirmed etc.)
+        return toDto(saved); // CHANGED
     }
 
     @Override
@@ -215,48 +236,94 @@ public class AssetServiceImpl implements AssetService {
         asset.setStatus(AssetStatus.RETURN_REQUESTED);
         Asset saved = assetRepo.save(asset);
         writeEvent(saved, EventType.RETURN_REQUESTED, dto.getReason());
-        return assetMapper.toResponse(saved); // FULL
+        return toDto(saved); // CHANGED
     }
 
     @Override
     public AssetResponseDTO reportIssue(Long assetId, AssetIssueReportRequestDTO dto, Long employeeId) {
         Asset asset = getActiveByIdAndScope(assetId);
 
-        // GUARD: Only the assigned employee can report an issue.
         if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
             throw new IllegalStateException("Not authorized to report issue");
         }
-
-        // GUARD: Retired is terminal; no further modifications.
         if (asset.getStatus() == AssetStatus.RETIRED) {
             throw new IllegalStateException("Retired assets cannot be modified.");
         }
 
-        // GUARD: Only these "issue" transitions from UI are allowed here.
         AssetStatus target = dto.getIssueType();
-        if (target != AssetStatus.MAINTENANCE &&
-                target != AssetStatus.LOST &&
-                target != AssetStatus.RETIRED) {
+        if (target != AssetStatus.MAINTENANCE && target != AssetStatus.LOST && target != AssetStatus.RETIRED) {
             throw new IllegalArgumentException("Only MAINTENANCE, LOST or RETIRED are allowed for issue report.");
         }
 
-        // CHANGE: Set new status directly based on employee's report.
-        AssetStatus old = asset.getStatus();
         asset.setStatus(target);
 
-        // WRITE EVENT: Use specific event types for better auditability.
         if (target == AssetStatus.MAINTENANCE) {
             writeEvent(asset, EventType.MAINTENANCE_OPENED, "Reported by employee");
         } else if (target == AssetStatus.LOST) {
             writeEvent(asset, EventType.LOST_REPORTED, "Reported by employee");
-        } else { // RETIRED
-            // NOTE: RETIRED is terminal; manager cannot "mark in stock" afterwards.
+        } else {
             writeEvent(asset, EventType.STATUS_CHANGED, "Retired by employee");
         }
 
         Asset saved = assetRepo.save(asset);
-        return assetMapper.toResponse(saved); // FULL
+        return toDto(saved); // CHANGED
     }
+
+    // =========================================================
+    // NEW: Employee can UNDO a pending Return Request
+    // - Allowed only if status == RETURN_REQUESTED
+    // - Revert to ASSIGNED_CONFIRMED if asset.confirmed=true, else ASSIGNED
+    // - Event: RETURN_REQUEST_CANCELED
+    // =========================================================
+    @Override
+    public AssetResponseDTO cancelReturnRequest(Long assetId, Long employeeId) {
+        Asset asset = getActiveByIdAndScope(assetId);
+
+        if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
+            throw new IllegalStateException("Not authorized to cancel return request.");
+        }
+        if (asset.getStatus() != AssetStatus.RETURN_REQUESTED) {
+            throw new IllegalStateException("No pending return request to cancel.");
+        }
+
+        asset.setStatus(asset.isConfirmed() ? AssetStatus.ASSIGNED_CONFIRMED : AssetStatus.ASSIGNED);
+        Asset saved = assetRepo.save(asset);
+
+        writeEvent(saved, EventType.RETURN_REQUEST_CANCELED, "Canceled by employee"); // NEW
+        return toDto(saved);
+    }
+
+    // =========================================================
+    // NEW: Employee can UNDO an Issue Report (MAINTENANCE/LOST)
+    // - Not allowed for RETIRED
+    // - Not allowed if manager already confirmed (ISSUE_CONFIRMED exists)
+    // - Revert to ASSIGNED_CONFIRMED (if confirmed) else ASSIGNED
+    // - Event: ISSUE_CANCELED
+    // =========================================================
+    @Override
+    public AssetResponseDTO cancelIssueReport(Long assetId, Long employeeId) {
+        Asset asset = getActiveByIdAndScope(assetId);
+
+        if (asset.getEmployee() == null || !asset.getEmployee().getId().equals(employeeId)) {
+            throw new IllegalStateException("Not authorized to cancel issue.");
+        }
+        if (asset.getStatus() == AssetStatus.RETIRED) {
+            throw new IllegalStateException("Retired assets cannot be undone.");
+        }
+        if (!(asset.getStatus() == AssetStatus.MAINTENANCE || asset.getStatus() == AssetStatus.LOST)) {
+            throw new IllegalStateException("Current state is not undoable.");
+        }
+        if (eventRepo.existsByAssetIdAndType(asset.getId(), EventType.ISSUE_CONFIRMED)) {
+            throw new IllegalStateException("Issue already confirmed by manager.");
+        }
+
+        asset.setStatus(asset.isConfirmed() ? AssetStatus.ASSIGNED_CONFIRMED : AssetStatus.ASSIGNED);
+        Asset saved = assetRepo.save(asset);
+
+        writeEvent(saved, EventType.ISSUE_CANCELED, "Canceled by employee"); // NEW
+        return toDto(saved);
+    }
+
     // ---------------- Events & Maintenance ----------------
 
     @Override
@@ -301,7 +368,6 @@ public class AssetServiceImpl implements AssetService {
 
         Asset asset = m.getAsset();
 
-        // Restore status depending on configuration
         if (dto.isRestoreToAssigned() && asset.getEmployee() != null) {
             asset.setStatus(AssetStatus.ASSIGNED_CONFIRMED);
         } else {
@@ -321,13 +387,11 @@ public class AssetServiceImpl implements AssetService {
     private Asset getActiveByIdAndScope(Long id) {
         Asset asset = assetRepo.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new IllegalStateException("Asset not found or inactive"));
-        // Company scoping check
         companyService.assertInCurrentCompany(asset.getCompany().getId());
         return asset;
     }
 
     private void guardAssign(Asset asset) {
-        // Basic guard: only assign if in inventory-like states
         if (asset.getStatus() != AssetStatus.IN_STOCK) {
             throw new IllegalStateException("Asset is not available for assignment");
         }

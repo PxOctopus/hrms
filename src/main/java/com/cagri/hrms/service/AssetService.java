@@ -43,4 +43,9 @@ public interface AssetService {
     AssetMaintenanceResponseDTO openMaintenance(Long assetId, MaintenanceOpenRequestDTO dto, Long actorUserId);
 
     AssetMaintenanceResponseDTO closeMaintenance(Long maintenanceId, MaintenanceCloseRequestDTO dto, Long actorUserId);
+    // NEW: employee can undo return request if still pending
+    AssetResponseDTO cancelReturnRequest(Long assetId, Long employeeId);
+
+    // NEW: employee can undo issue report if not confirmed by manager
+    AssetResponseDTO cancelIssueReport(Long assetId, Long employeeId);
 }

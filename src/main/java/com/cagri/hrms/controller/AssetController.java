@@ -114,4 +114,18 @@ public class AssetController {
     public ResponseEntity<List<AssetEventResponseDTO>> events(@PathVariable Long id) {
         return ResponseEntity.ok(assetService.events(id));
     }
+
+    @PostMapping("/{id}/cancel-return-request")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<AssetResponseDTO> cancelReturnRequest(@PathVariable Long id) {
+        Long employeeId = employeeService.getCurrentEmployeeIdOrThrow();
+        return ResponseEntity.ok(assetService.cancelReturnRequest(id, employeeId));
+    }
+
+    @PostMapping("/{id}/cancel-issue-report")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<AssetResponseDTO> cancelIssueReport(@PathVariable Long id) {
+        Long employeeId = employeeService.getCurrentEmployeeIdOrThrow();
+        return ResponseEntity.ok(assetService.cancelIssueReport(id, employeeId));
+    }
 }
