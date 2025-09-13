@@ -16,7 +16,7 @@ public interface AssetService {
 
     AssetResponseDTO update(Long id, AssetUpdateRequestDTO dto);
 
-    void softDelete(Long id);
+    void softDelete(Long id); // archive (active=false)
 
     // Company-scoped listing (manager view)
     List<AssetResponseDTO> listByCompany(Long companyId, AssetStatus status);
@@ -25,17 +25,23 @@ public interface AssetService {
     AssetResponseDTO assign(Long assetId, AssetAssignRequestDTO dto);
 
     AssetResponseDTO changeStatus(Long assetId, AssetChangeStatusRequestDTO dto);
+    // Note: Manager approves retirement by calling changeStatus with
+    // old=RETIRE_REQUESTED and new=RETIRED.
 
     // --- Employee self-service ---
-    // Employee’s own list → SLIM DTO
     List<EmployeeAssetResponseDTO> listMyAssets(Long employeeId);
 
-    // Employee actions can still return FULL DTO so FE sees status/confirmed/etc.
     AssetResponseDTO confirm(Long assetId, AssetConfirmRequestDTO dto, Long employeeId);
 
     AssetResponseDTO requestReturn(Long assetId, AssetReturnRequestDTO dto, Long employeeId);
 
     AssetResponseDTO reportIssue(Long assetId, AssetIssueReportRequestDTO dto, Long employeeId);
+    // Note: For retirement ask, employee sends issueType=RETIRE_REQUESTED (not RETIRED).
+
+    // --- Undo actions (employee) ---
+    AssetResponseDTO cancelReturnRequest(Long assetId, Long employeeId);
+
+    AssetResponseDTO cancelIssueReport(Long assetId, Long employeeId);
 
     // --- Events & Maintenance ---
     List<AssetEventResponseDTO> events(Long assetId);
@@ -43,9 +49,4 @@ public interface AssetService {
     AssetMaintenanceResponseDTO openMaintenance(Long assetId, MaintenanceOpenRequestDTO dto, Long actorUserId);
 
     AssetMaintenanceResponseDTO closeMaintenance(Long maintenanceId, MaintenanceCloseRequestDTO dto, Long actorUserId);
-    // NEW: employee can undo return request if still pending
-    AssetResponseDTO cancelReturnRequest(Long assetId, Long employeeId);
-
-    // NEW: employee can undo issue report if not confirmed by manager
-    AssetResponseDTO cancelIssueReport(Long assetId, Long employeeId);
 }
