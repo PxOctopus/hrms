@@ -128,4 +128,11 @@ public class AssetController {
         Long employeeId = employeeService.getCurrentEmployeeIdOrThrow();
         return ResponseEntity.ok(assetService.cancelIssueReport(id, employeeId));
     }
+
+    @PostMapping("/{id}/archive")
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<Void> archive(@PathVariable Long id) {
+        assetService.softDelete(id);
+        return ResponseEntity.noContent().build(); // 204
+    }
 }
