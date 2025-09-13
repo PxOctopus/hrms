@@ -1,172 +1,197 @@
 package com.cagri.hrms.service.impl;
 
 import com.cagri.hrms.dto.request.employee.ExpenseRequestDTO;
-import com.cagri.hrms.dto.response.employee.ExpenseResponseDTO;
+import com.cagri.hrms.dto.request.expense.ExpenseCreateDTO;
+import com.cagri.hrms.dto.request.expense.ExpenseUpdateDTO;
+import com.cagri.hrms.dto.response.expense.ExpenseResponseDTO;
+import com.cagri.hrms.entity.core.Company;
 import com.cagri.hrms.entity.core.User;
 import com.cagri.hrms.entity.employee.Employee;
-import com.cagri.hrms.entity.employee.Expense;
-import com.cagri.hrms.enums.ExpenseStatus;
+import com.cagri.hrms.entity.expense.Expense;
+import com.cagri.hrms.entity.expense.Project;
+import com.cagri.hrms.entity.expense.ProjectAssignment;
+import com.cagri.hrms.enums.expense.ExpenseStatus;
 import com.cagri.hrms.exception.ErrorType;
 import com.cagri.hrms.exception.HrmsException;
 import com.cagri.hrms.mapper.ExpenseMapper;
 import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.ExpenseRepository;
+import com.cagri.hrms.repository.ProjectAssignmentRepository;
+import com.cagri.hrms.repository.ProjectRepository;
 import com.cagri.hrms.service.ExpenseService;
+import com.cagri.hrms.service.PayrollService;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ExpenseServiceImpl implements ExpenseService {
 
-    private final ExpenseRepository expenseRepository;
-    private final EmployeeRepository employeeRepository;
-    private final ExpenseMapper expenseMapper;
+    private final ExpenseRepository expenseRepo;
+    private final ProjectRepository projectRepo;
+    private final ProjectAssignmentRepository assignmentRepo;
+    private final ExpenseMapper mapper;
+    private final PayrollService payrollService;
 
     @Override
-    public ExpenseResponseDTO createExpense(ExpenseRequestDTO dto, User currentUser) {
-        // Only the employee can create their own expense
-        Employee employee = employeeRepository.findById(dto.getEmployeeId())
-                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found"));
+    public ExpenseResponseDTO create(ExpenseCreateDTO dto, Employee employee) {
+        Expense e = mapper.toEntity(dto);
+        e.setEmployee(employee);
 
-        if (!isSelf(currentUser, employee)) {
-            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "You can only create expenses for yourself.");
-        }
+        // Resolve project: default to company-wide if null
+        Project p = resolveProjectOrCompanyWide(dto.getProjectId(), employee.getCompany());
+        e.setProject(p);
 
-        Expense expense = expenseMapper.toEntity(dto);
-        expense.setEmployee(employee);
-        expense.setStatus(ExpenseStatus.PENDING);
-        expense.setActive(true);
+        // Compute net (simple policy; adjust as needed)
+        BigDecimal tip = Optional.ofNullable(e.getTipAmount()).orElse(BigDecimal.ZERO);
+        BigDecimal vat = Optional.ofNullable(e.getVatAmount()).orElse(BigDecimal.ZERO);
+        e.setNetAmount(e.getGrossAmount().add(tip).add(vat));
 
-        expense = expenseRepository.save(expense);
+        // Initial state
+        e.setStatus(ExpenseStatus.DRAFT);
+        expenseRepo.save(e);
 
-        return expenseMapper.toDto(expense);
-    }
-
-    @Override
-    public ExpenseResponseDTO updateExpense(Long id, ExpenseRequestDTO dto, User currentUser) {
-        // Only the employee can update their own expense, and only if it's still pending
-        Expense expense = expenseRepository.findById(id)
-                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Expense not found"));
-
-        if (!isSelf(currentUser, expense.getEmployee())) {
-            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "You can only update your own expenses.");
-        }
-        if (expense.getStatus() != ExpenseStatus.PENDING) {
-            throw new HrmsException(ErrorType.BUSINESS_ERROR, "You can only update expenses that are still pending.");
-        }
-
-        expense.setDescription(dto.getDescription());
-        expense.setAmount(dto.getAmount());
-        expense.setExpenseDate(dto.getExpenseDate());
-        expense.setFileUrl(dto.getFileUrl());
-        // Do not change status or employee here
-
-        expense = expenseRepository.save(expense);
-
-        return expenseMapper.toDto(expense);
+        ExpenseResponseDTO out = mapper.toDTO(e);
+        return withAllowedActions(out, employee, false);
     }
 
     @Override
-    public void deleteExpense(Long id, User currentUser) {
-        // Only the employee can delete their own expense, and only if it's still pending
-        Expense expense = expenseRepository.findById(id)
-                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Expense not found"));
-
-        if (!isSelf(currentUser, expense.getEmployee())) {
-            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "You can only delete your own expenses.");
-        }
-        if (expense.getStatus() != ExpenseStatus.PENDING) {
-            throw new HrmsException(ErrorType.BUSINESS_ERROR, "You can only delete expenses that are still pending.");
+    public ExpenseResponseDTO update(Long id, ExpenseUpdateDTO dto, Employee employee) {
+        Expense e = expenseRepo.findById(id).orElseThrow(EntityNotFoundException::new);
+        // Security: only owner can update in DRAFT/REJECTED
+        if (!e.getEmployee().getId().equals(employee.getId()) ||
+                !(e.getStatus() == ExpenseStatus.DRAFT || e.getStatus() == ExpenseStatus.REJECTED)) {
+            throw new IllegalStateException("Not allowed to update this expense");
         }
 
-        expense.setActive(false); // Soft delete
-        expenseRepository.save(expense);
+        mapper.updateEntity(e, dto);
+
+        Project p = resolveProjectOrCompanyWide(dto.getProjectId(), employee.getCompany());
+        e.setProject(p);
+
+        BigDecimal tip = Optional.ofNullable(e.getTipAmount()).orElse(BigDecimal.ZERO);
+        BigDecimal vat = Optional.ofNullable(e.getVatAmount()).orElse(BigDecimal.ZERO);
+        e.setNetAmount(e.getGrossAmount().add(tip).add(vat));
+
+        ExpenseResponseDTO out = mapper.toDTO(e);
+        return withAllowedActions(out, employee, false);
     }
 
     @Override
-    public ExpenseResponseDTO getExpenseById(Long id, User currentUser) {
-        Expense expense = expenseRepository.findById(id)
-                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Expense not found"));
-
-        if (isSelf(currentUser, expense.getEmployee()) || isManagerOf(currentUser, expense.getEmployee())) {
-            return expenseMapper.toDto(expense);
-        }
-        throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "You are not authorized to view this expense.");
+    public ExpenseResponseDTO getById(Long id, Employee requester) {
+        Expense e = expenseRepo.findById(id).orElseThrow(EntityNotFoundException::new);
+        boolean isManager = requester.getUser().getRole().getName().equals("MANAGER");
+        ExpenseResponseDTO out = mapper.toDTO(e);
+        return withAllowedActions(out, requester, isManager);
     }
 
     @Override
-    public List<ExpenseResponseDTO> getExpensesByEmployeeId(Long employeeId, User currentUser) {
-        Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found"));
-
-        if (isSelf(currentUser, employee) || isManagerOf(currentUser, employee)) {
-            return expenseRepository.findAllByEmployee_Id(employeeId)
-                    .stream()
-                    .map(expenseMapper::toDto)
-                    .collect(Collectors.toList());
-        }
-        throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "You are not authorized to view this employee's expenses.");
+    public Page<ExpenseResponseDTO> listMy(Employee employee, Pageable pageable) {
+        return expenseRepo.findByEmployee(employee, pageable)
+                .map(mapper::toDTO)
+                .map(dto -> withAllowedActions(dto, employee, false));
     }
 
     @Override
-    public List<ExpenseResponseDTO> getAllExpenses(User currentUser) {
-        // Only MANAGER can see all company expenses
-        if (!isManager(currentUser)) {
-            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Only managers can view all expenses.");
+    public ExpenseResponseDTO submit(Long id, Employee employee) {
+        Expense e = expenseRepo.findById(id).orElseThrow(EntityNotFoundException::new);
+        if (!e.getEmployee().getId().equals(employee.getId()) || e.getStatus() != ExpenseStatus.DRAFT && e.getStatus() != ExpenseStatus.REJECTED) {
+            throw new IllegalStateException("Only draft/rejected expenses can be submitted by owner");
         }
-        // Get all employees in the same company
-        return expenseRepository.findAll().stream()
-                .filter(expense -> expense.getEmployee().getCompany().getId().equals(currentUser.getCompany().getId()))
-                .map(expenseMapper::toDto)
-                .collect(Collectors.toList());
+        // Policy checks: backdate, receipt required, project assignment (if needed)
+        validatePolicyOnSubmit(e);
+
+        e.setStatus(ExpenseStatus.SUBMITTED);
+        e.setSubmittedAt(java.time.LocalDateTime.now());
+
+        ExpenseResponseDTO out = mapper.toDTO(e);
+        return withAllowedActions(out, employee, false);
     }
 
     @Override
-    public void approveExpense(Long id, String managerNote, User currentUser) {
-        // Only MANAGER can approve expenses in their own company
-        Expense expense = expenseRepository.findById(id)
-                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Expense not found"));
-        if (!isManagerOf(currentUser, expense.getEmployee())) {
-            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "You are not authorized to approve this expense.");
-        }
-        expense.setStatus(ExpenseStatus.APPROVED);
-        expense.setManagerNote(managerNote);
-        expenseRepository.save(expense);
+    public Page<ExpenseResponseDTO> listSubmittedForCompany(Long companyId, Pageable pageable) {
+        return expenseRepo.findByProjectCompanyIdAndStatus(companyId, ExpenseStatus.SUBMITTED, pageable)
+                .map(mapper::toDTO);
     }
 
     @Override
-    public void rejectExpense(Long id, String managerNote, User currentUser) {
-        // Only MANAGER can reject expenses in their own company
-        Expense expense = expenseRepository.findById(id)
-                .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Expense not found"));
-        if (!isManagerOf(currentUser, expense.getEmployee())) {
-            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "You are not authorized to reject this expense.");
+    public ExpenseResponseDTO approve(Long id, Long managerUserId) {
+        Expense e = expenseRepo.findById(id).orElseThrow(EntityNotFoundException::new);
+        if (e.getStatus() != ExpenseStatus.SUBMITTED) {
+            throw new IllegalStateException("Only SUBMITTED expenses can be approved");
         }
-        expense.setStatus(ExpenseStatus.REJECTED);
-        expense.setManagerNote(managerNote);
-        expenseRepository.save(expense);
+        e.setStatus(ExpenseStatus.APPROVED);
+        e.setManagerReviewerId(managerUserId);
+        e.setManagerReviewedAt(java.time.LocalDateTime.now());
+
+        // Create payroll adjustment (effective date = next payroll; replace with your logic)
+        LocalDate effectiveDate = nextPayrollCutoff();
+        payrollService.createReimbursementForExpense(
+                e.getId(),
+                e.getEmployee(),
+                e.getNetAmount(), // assume TRY; convert if needed
+                e.getCurrency(),
+                effectiveDate
+        );
+
+        ExpenseResponseDTO out = mapper.toDTO(e);
+        return out;
     }
 
+    @Override
+    public ExpenseResponseDTO reject(Long id, String reason, Long managerUserId) {
+        Expense e = expenseRepo.findById(id).orElseThrow(EntityNotFoundException::new);
+        if (e.getStatus() != ExpenseStatus.SUBMITTED) {
+            throw new IllegalStateException("Only SUBMITTED expenses can be rejected");
+        }
+        e.setStatus(ExpenseStatus.REJECTED);
+        e.setManagerReviewerId(managerUserId);
+        e.setManagerReviewedAt(java.time.LocalDateTime.now());
+        e.setManagerDecisionNote(reason);
 
-    // Returns true if currentUser is the employee (self)
-    private boolean isSelf(User currentUser, Employee employee) {
-        return employee.getUser() != null && currentUser.getId().equals(employee.getUser().getId());
+        return mapper.toDTO(e);
     }
 
-    // Returns true if currentUser is MANAGER of employee's company
-    private boolean isManagerOf(User currentUser, Employee employee) {
-        return isManager(currentUser)
-                && employee.getCompany() != null
-                && currentUser.getCompany() != null
-                && employee.getCompany().getId().equals(currentUser.getCompany().getId());
+    @Override
+    public ExpenseResponseDTO withAllowedActions(ExpenseResponseDTO dto, Employee requester, boolean isManager) {
+        // TODO: Build allowed actions array based on state + role
+        // e.g., DRAFT -> ["EDIT","SUBMIT","DELETE"], SUBMITTED (manager) -> ["APPROVE","REJECT"]
+        return dto;
     }
 
-    // Returns true if user has MANAGER role
-    private boolean isManager(User currentUser) {
-        return currentUser.getRole() != null && "MANAGER".equalsIgnoreCase(currentUser.getRole().getName());
+    // --- helpers ---
+
+    private Project resolveProjectOrCompanyWide(Long projectId, Company company) {
+        if (projectId != null) {
+            return projectRepo.findById(projectId).orElseThrow(EntityNotFoundException::new);
+        }
+        return projectRepo.findByCompanyAndIsGenericTrue(company)
+                .orElseThrow(() -> new IllegalStateException("Company-wide project missing for company"));
+    }
+
+    private void validatePolicyOnSubmit(Expense e) {
+        // TODO: receipt required, backdate limit, category caps, assignment check if project.requiresAssignment
+        if (e.getProject() != null && !e.getProject().isGeneric() && e.getProject().isRequiresAssignment()) {
+            ProjectAssignment pa = assignmentRepo.findByProjectAndEmployee(e.getProject(), e.getEmployee())
+                    .orElseThrow(() -> new IllegalStateException("Project assignment not found"));
+            if (!pa.isAccepted()) throw new IllegalStateException("Project assignment not accepted");
+        }
+    }
+
+    private LocalDate nextPayrollCutoff() {
+        // TODO: replace with real logic; for now return end-of-month
+        LocalDate today = LocalDate.now();
+        return today.withDayOfMonth(today.lengthOfMonth());
     }
 }

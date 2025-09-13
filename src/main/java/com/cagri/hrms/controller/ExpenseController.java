@@ -1,12 +1,20 @@
 package com.cagri.hrms.controller;
 
 import com.cagri.hrms.dto.request.employee.ExpenseRequestDTO;
-import com.cagri.hrms.dto.response.employee.ExpenseResponseDTO;
+import com.cagri.hrms.dto.request.expense.ExpenseCreateDTO;
+import com.cagri.hrms.dto.request.expense.ExpenseUpdateDTO;
+import com.cagri.hrms.dto.request.expense.RejectRequestDTO;
+import com.cagri.hrms.dto.response.expense.ExpenseResponseDTO;
 import com.cagri.hrms.entity.core.User;
+import com.cagri.hrms.entity.employee.Employee;
+import com.cagri.hrms.service.CompanyService;
 import com.cagri.hrms.service.ExpenseService;
 import com.cagri.hrms.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,91 +28,68 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExpenseController {
 
-    private final ExpenseService expenseService;
-    private final UserService userService;
+    private final ExpenseService service;
+    private final CompanyService companyService;
 
-    // Create expense (EMPLOYEE only, for themselves)
+    private Employee currentEmployee() { /* ... */
+        return null;
+    }
+
+    private Long currentCompanyId() { /* ... */
+        return null;
+    }
+
+    // ----- Employee endpoints -----
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @GetMapping("/my")
+    public Page<ExpenseResponseDTO> myExpenses(@PageableDefault(size = 20) Pageable pageable) {
+        return service.listMy(currentEmployee(), pageable);
+    }
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
     @PostMapping
-    @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<ExpenseResponseDTO> createExpense(
-            @Valid @RequestBody ExpenseRequestDTO dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(expenseService.createExpense(dto, currentUser));
+    public ExpenseResponseDTO create(@Valid @RequestBody ExpenseCreateDTO dto) {
+        return service.create(dto, currentEmployee());
     }
 
-    // Update expense (EMPLOYEE only, for themselves)
+    @PreAuthorize("hasRole('EMPLOYEE')")
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<ExpenseResponseDTO> updateExpense(
-            @PathVariable Long id,
-            @Valid @RequestBody ExpenseRequestDTO dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(expenseService.updateExpense(id, dto, currentUser));
+    public ExpenseResponseDTO update(@PathVariable Long id, @Valid @RequestBody ExpenseUpdateDTO dto) {
+        return service.update(id, dto, currentEmployee());
     }
 
-    // Delete expense (EMPLOYEE only, for themselves)
-    @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<Void> deleteExpense(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        expenseService.deleteExpense(id, currentUser);
-        return ResponseEntity.noContent().build();
+    @PostMapping("/{id}/submit")
+    public ExpenseResponseDTO submit(@PathVariable Long id) {
+        return service.submit(id, currentEmployee());
     }
 
-    // Get an expense by ID (EMPLOYEE or MANAGER)
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER')")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER')")
-    public ResponseEntity<ExpenseResponseDTO> getExpenseById(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(expenseService.getExpenseById(id, currentUser));
+    public ExpenseResponseDTO get(@PathVariable Long id) {
+        return service.getById(id, currentEmployee());
     }
 
-    // Get all expenses of an employee (EMPLOYEE: self, MANAGER: company employees)
-    @GetMapping("/employee/{employeeId}")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER')")
-    public ResponseEntity<List<ExpenseResponseDTO>> getExpensesByEmployeeId(
-            @PathVariable Long employeeId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(expenseService.getExpensesByEmployeeId(employeeId, currentUser));
-    }
+    // ----- Manager review endpoints -----
 
-    // Get all expenses in the company (MANAGER only)
-    @GetMapping
     @PreAuthorize("hasRole('MANAGER')")
-    public ResponseEntity<List<ExpenseResponseDTO>> getAllExpenses(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(expenseService.getAllExpenses(currentUser));
+    @GetMapping("/review")
+    public Page<ExpenseResponseDTO> reviewQueue(@PageableDefault(size = 20) Pageable pageable) {
+        return service.listSubmittedForCompany(currentCompanyId(), pageable);
     }
 
-    // Approve expense (MANAGER only)
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/{id}/approve")
-    @PreAuthorize("hasRole('MANAGER')")
-    public ResponseEntity<Void> approveExpense(
-            @PathVariable Long id,
-            @RequestParam(required = false) String managerNote,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        expenseService.approveExpense(id, managerNote, currentUser);
-        return ResponseEntity.ok().build();
+    public ExpenseResponseDTO approve(@PathVariable Long id) {
+        Long managerUserId = companyService.getCurrentUserId();
+        return service.approve(id, managerUserId);
     }
 
-    // Reject expense (MANAGER only)
-    @PostMapping("/{id}/reject")
     @PreAuthorize("hasRole('MANAGER')")
-    public ResponseEntity<Void> rejectExpense(
-            @PathVariable Long id,
-            @RequestParam(required = false) String managerNote,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User currentUser = userService.getUserByEmail(userDetails.getUsername());
-        expenseService.rejectExpense(id, managerNote, currentUser);
-        return ResponseEntity.ok().build();
+    @PostMapping("/{id}/reject")
+    public ExpenseResponseDTO reject(@PathVariable Long id, @Valid @RequestBody RejectRequestDTO dto) {
+        Long managerUserId = companyService.getCurrentUserId();
+        return service.reject(id, dto.getReason(), managerUserId);
     }
 }

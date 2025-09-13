@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -261,5 +262,10 @@ public class EmployeeServiceImpl implements EmployeeService {
     public Employee getByUserIdOrThrow(Long userId) {
         return employeeRepository.findByUserId(userId)
                 .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found by userId"));
+    }
+
+    @Override
+    public Optional<Employee> findById(Long id) {
+        return employeeRepository.findById(id);
     }
 }
