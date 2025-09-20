@@ -301,5 +301,27 @@ public class ExpenseServiceImpl implements ExpenseService {
     private LocalDate endOfMonth(LocalDate d) {
         return d.with(TemporalAdjusters.lastDayOfMonth());
     }
+
+    @Override
+    public Page<ExpenseResponseDTO> findCompanyExpenses(Long companyId,
+                                                        ExpenseStatus status,
+                                                        Boolean paidOnly,
+                                                        Pageable pageable) {
+        Page<Expense> page;
+
+        boolean onlyPaid = Boolean.TRUE.equals(paidOnly);
+
+        if (status == null) {
+            page = onlyPaid
+                    ? expenseRepo.findByEmployeeCompanyIdAndPaidAtIsNotNull(companyId, pageable)
+                    : expenseRepo.findByEmployeeCompanyId(companyId, pageable);
+        } else {
+            page = onlyPaid
+                    ? expenseRepo.findByEmployeeCompanyIdAndStatusAndPaidAtIsNotNull(companyId, status, pageable)
+                    : expenseRepo.findByEmployeeCompanyIdAndStatus(companyId, status, pageable);
+        }
+
+        return page.map(mapper::toDTO);
+    }
     }
 

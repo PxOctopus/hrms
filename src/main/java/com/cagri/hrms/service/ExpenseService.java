@@ -52,4 +52,8 @@ public interface ExpenseService {
 
     ExpenseResponseDTO markPaid(Long expenseId, Long financeUserId);
 
+    Page<ExpenseResponseDTO> findCompanyExpenses(Long companyId,
+                                                 ExpenseStatus status,
+                                                 Boolean paidOnly,
+                                                 Pageable pageable);
 }

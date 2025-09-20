@@ -95,11 +95,11 @@ public class ExpenseController {
     @GetMapping("/review")
     public Page<ExpenseResponseDTO> reviewQueue(
             @RequestParam(value = "status", required = false) ExpenseStatus status,
+            @RequestParam(value = "paidOnly", required = false, defaultValue = "false") boolean paidOnly,
             @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Long companyId = currentCompanyId();
-        // If status is null, service will return ALL for the company (SUBMITTED/APPROVED/REJECTED...)
-        return service.findCompanyExpenses(companyId, status, pageable);
+        return service.findCompanyExpenses(companyId, status, paidOnly, pageable);
     }
 
     @PreAuthorize("hasRole('MANAGER')")

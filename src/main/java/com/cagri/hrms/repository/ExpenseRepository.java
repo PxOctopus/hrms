@@ -29,4 +29,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     // Safety helpers for fetching a single expense in the right scope
     Optional<Expense> findByIdAndEmployee(Long id, Employee employee);          // employee-owned
     Optional<Expense> findByIdAndEmployeeCompanyId(Long id, Long companyId);    // company-owned (manager scope)
+
+
+
+    // PAID
+    Page<Expense> findByEmployeeCompanyIdAndPaidAtIsNotNull(Long companyId, Pageable pageable);
+    Page<Expense> findByEmployeeCompanyIdAndStatusAndPaidAtIsNotNull(Long companyId, ExpenseStatus status, Pageable pageable);
 }
