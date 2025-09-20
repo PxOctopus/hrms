@@ -17,7 +17,6 @@ import com.cagri.hrms.repository.EmployeeRepository;
 import com.cagri.hrms.repository.UserRepository;
 import com.cagri.hrms.security.SecurityUtil;
 import com.cagri.hrms.service.CompanyService;
-import com.cagri.hrms.service.EmployeeService;
 import com.cagri.hrms.service.MailService;
 import com.cagri.hrms.service.UserService;
 import jakarta.transaction.Transactional;
@@ -28,8 +27,8 @@ import org.springframework.stereotype.Service;
 import com.cagri.hrms.enums.EmployeeLimitLevel;
 import com.cagri.hrms.enums.SubscriptionPlan;
 
-
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,8 +42,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final UserMapper userMapper;
     private final MailService mailService;
     private final EmployeeRepository employeeRepository;
-    private final UserService  userService;
-
+    private final UserService userService;
 
     @Override
     public CompanyResponseDTO createCompany(CompanyRequestDTO dto) {
@@ -74,8 +72,14 @@ public class CompanyServiceImpl implements CompanyService {
         // Set audit fields (since updateAt was ignored in mapping)
         company.setUpdateAt(System.currentTimeMillis());
 
-        // Save and return the company
+        // Save the company first
         Company saved = companyRepository.save(company);
+
+        // IMPORTANT: bind manager.user -> company so future scope resolution works (User -> Company fast path)
+        manager.setCompany(saved);
+        userRepository.save(manager);
+
+        // Return the company DTO
         return companyMapper.toDTO(saved);
     }
 
@@ -98,9 +102,9 @@ public class CompanyServiceImpl implements CompanyService {
         // 4. Prepare a DTO to create a new company
         CompanyRequestDTO companyRequest = new CompanyRequestDTO();
         companyRequest.setCompanyName(user.getPendingCompanyName());
-        companyRequest.setEmployeeLimitLevel(EmployeeLimitLevel.SMALL); // or dynamically determine
-        companyRequest.setEmployeeNumberLimit(10);                         // default limit
-        companyRequest.setSubscriptionPlan(SubscriptionPlan.FREE);       // default plan
+        companyRequest.setEmployeeLimitLevel(EmployeeLimitLevel.SMALL); // default or dynamically determine
+        companyRequest.setEmployeeNumberLimit(10);                      // default limit
+        companyRequest.setSubscriptionPlan(SubscriptionPlan.FREE);      // default plan
 
         // 5. Convert the DTO to a Company entity using the mapper
         Company newCompany = companyMapper.toEntity(companyRequest, user);
@@ -172,31 +176,42 @@ public class CompanyServiceImpl implements CompanyService {
         companyRepository.delete(company);
     }
 
-
-    //ADDED
+    // ---------------- ADDED: multi-tenant scope helpers ----------------
 
     @Override
     public Company getCurrentCompanyOrThrow() {
-        Long userId = userService.getCurrentUserId();
+        final Long userId = userService.getCurrentUserId();
 
-        // Use roles to decide path (simple and explicit)
-        boolean isManager = SecurityUtil.hasRole("MANAGER");
-        boolean isEmployee = SecurityUtil.hasRole("EMPLOYEE");
+        // 1) Fast path: via User -> Company (works for MANAGER/EMPLOYEE/ADMIN if set)
+        Company viaUser = userRepository.findById(userId)
+                .map(User::getCompany)
+                .orElse(null);
+        if (viaUser != null) return viaUser;
 
-        if (isManager) {
-            return companyRepository.findByCompanyManagerId(userId)
-                    .orElseThrow(() -> new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Company not found for manager"));
+        // 2) Manager path (never touch EmployeeRepository for manager users)
+        if (SecurityUtil.hasRole("MANAGER")) {
+            return companyRepository.findByCompanyManager_Id(userId)
+                    .orElseThrow(() -> new HrmsException(
+                            ErrorType.AUTHORIZATION_ERROR,
+                            "Company not found for manager"
+                    ));
         }
 
-        if (isEmployee) {
-            Employee emp = employeeRepository.findByUserId(userId)
-                    .orElseThrow(() -> new HrmsException(ErrorType.RESOURCE_NOT_FOUND, "Employee not found by userId"));
-            if (emp.getCompany() == null)
-                throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Employee has no company");
-            return emp.getCompany();
+        // 3) Employee path
+        if (SecurityUtil.hasRole("EMPLOYEE")) {
+            return employeeRepository.findByUserId(userId)
+                    .map(Employee::getCompany)
+                    .orElseThrow(() -> new HrmsException(
+                            ErrorType.RESOURCE_NOT_FOUND,
+                            "Employee not found by userId"
+                    ));
         }
 
-        // If you have ADMIN, decide policy (header-driven, or deny)
+        // 4) Optional: Admin policy (deny if no tenant scope)
+        if (SecurityUtil.hasRole("ADMIN")) {
+            throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Admin has no company scope");
+        }
+
         throw new HrmsException(ErrorType.AUTHORIZATION_ERROR, "Company scope cannot be resolved");
     }
 
@@ -219,5 +234,17 @@ public class CompanyServiceImpl implements CompanyService {
     public Long getCurrentUserId() {
         // Passthrough to UserService helper
         return userService.getCurrentUserId();
+    }
+
+    /** Manager flow: resolve via Company.companyManager.id */
+    @Override
+    public Optional<Company> findCompanyByManagerUserId(Long userId) {
+        return companyRepository.findByCompanyManager_Id(userId);
+    }
+
+    /** Employee flow: resolve via Employee -> Company (no need for a derived query on Company) */
+    @Override
+    public Optional<Company> findCompanyByEmployeeUserId(Long userId) {
+        return employeeRepository.findByUserId(userId).map(Employee::getCompany);
     }
 }

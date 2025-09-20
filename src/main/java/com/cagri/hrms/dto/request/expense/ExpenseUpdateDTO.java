@@ -4,8 +4,6 @@ import com.cagri.hrms.enums.expense.ExpenseCategory;
 import com.cagri.hrms.enums.expense.PaymentMethod;
 import com.cagri.hrms.enums.expense.ReceiptType;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -13,28 +11,26 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Update payload — partial update (PATCH-like).
+ * Null fields are ignored by mapper (NullValuePropertyMappingStrategy.IGNORE).
+ */
 @Data
 public class ExpenseUpdateDTO {
-    // Allowed only in DRAFT/REJECTED states
-    private Long projectId;
 
-    @NotNull
     private ExpenseCategory category;
 
-    @NotNull
+    /** Optional — if null, keep current value. */
     private PaymentMethod paymentMethod;
 
-    @NotNull
+    /** Optional — if null, keep or service may default. */
     private ReceiptType receiptType;
 
-    @NotNull
     private LocalDate expenseDate;
 
-    @NotBlank
     @Size(max = 8)
     private String currency;
 
-    @NotNull
     @DecimalMin("0.01")
     private BigDecimal grossAmount;
 
@@ -51,5 +47,3 @@ public class ExpenseUpdateDTO {
 
     private List<String> receiptFiles;
 }
-
-

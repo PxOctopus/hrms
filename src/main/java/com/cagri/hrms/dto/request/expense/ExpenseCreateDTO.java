@@ -13,20 +13,27 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Create payload — project removed. Keep MVP minimal; some fields optional.
+ */
 @Data
 public class ExpenseCreateDTO {
-    // Optional; service will default to company-wide if null
-    private Long projectId;
 
-    @NotNull
+    @NotNull(message = "category is required")
     private ExpenseCategory category;
-    @NotNull private PaymentMethod paymentMethod;
-    @NotNull private ReceiptType receiptType;
 
-    @NotNull private LocalDate expenseDate;
+    /** Optional in MVP; make it @NotNull if you want to enforce. */
+    private PaymentMethod paymentMethod;
 
+    /** Optional in MVP; service can default to ReceiptType.RECEIPT if null. */
+    private ReceiptType receiptType;
+
+    @NotNull(message = "expenseDate is required")
+    private LocalDate expenseDate;
+
+    /** ISO-4217 currency code; default "TRY". */
     @NotBlank
-    @Size(max = 8)
+    @Size(max = 8) // keep 8 if backend entity allows 8; typically 3 is enough for ISO code.
     private String currency = "TRY";
 
     @NotNull
@@ -44,6 +51,6 @@ public class ExpenseCreateDTO {
 
     private String location;
 
-    // File keys uploaded via separate endpoint; may be set later
+    /** Storage keys/paths for uploaded receipts (optional). */
     private List<String> receiptFiles;
 }

@@ -6,6 +6,7 @@ import com.cagri.hrms.dto.response.user.UserResponseDTO;
 import com.cagri.hrms.entity.core.Company;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CompanyService {
 
@@ -39,4 +40,11 @@ public interface CompanyService {
     /** Convenience passthrough to user id (some controllers call this). */
     // ADDED:
     Long getCurrentUserId();
+
+
+    // For MANAGER flow
+    Optional<Company> findCompanyByManagerUserId(Long userId);
+
+    // For EMPLOYEE flow
+    Optional<Company> findCompanyByEmployeeUserId(Long userId);
 }

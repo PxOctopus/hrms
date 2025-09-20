@@ -1,4 +1,4 @@
 package com.cagri.hrms.enums.expense;
 
-public enum PaymentMethod { COMPANY_CARD, PERSONAL_CARD, CASH }
+public enum PaymentMethod { COMPANY_CARD, PERSONAL_CARD, CASH, BANK_TRANSFER }
 

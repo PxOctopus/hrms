@@ -52,4 +52,6 @@ public interface EmployeeService {
     Employee getByUserIdOrThrow(Long userId);
 
     Optional<Employee> findById(Long id);
+
+    Optional<Employee> findByUserId(Long userId);
 }
